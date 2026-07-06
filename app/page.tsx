@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Menu } from "lucide-react";
 import SVGFilters from "@/components/SVGFilters";
 import SidebarTableros from "@/components/SidebarTableros";
 import StickerCanvas from "@/components/StickerCanvas";
 import { supabase } from "@/lib/supabaseClient";
+import { calcularEstadoAnimo } from "@/lib/colorAnalysis";
 import type { Tablero } from "@/lib/types";
 
 export default function Page() {
@@ -46,12 +47,30 @@ export default function Page() {
     setSidebarAbiertoMobile(false);
   }
 
+  function handleTableroEliminado(idEliminado: string) {
+    setTableros((prev) => {
+      const restantes = prev.filter((t) => t.id !== idEliminado);
+      setTableroActivo((actual) =>
+        actual?.id === idEliminado ? restantes[0] ?? null : actual
+      );
+      return restantes;
+    });
+  }
+
+  const estadoGlobal = useMemo(
+    () => calcularEstadoAnimo(paletaColores),
+    [paletaColores]
+  );
+
   return (
-    <main className="relative flex h-screen w-screen overflow-hidden bg-punk-black">
+    <main
+      className="relative flex h-screen w-screen overflow-hidden bg-punk-black"
+      style={{ "--mood-glow": estadoGlobal.glow } as React.CSSProperties}
+    >
       {/* Filtros SVG globales (duotono neon) */}
       <SVGFilters />
 
-      {/* Efectos CRT / scanlines globales */}
+      {/* Efectos CRT / scanlines globales, tenidos con la paleta detectada */}
       <div className="crt-vignette" />
       <div className="crt-overlay" />
       <div className="crt-scanline-moving" />
@@ -75,6 +94,7 @@ export default function Page() {
         tableroActivo={tableroActivo}
         onSeleccionar={setTableroActivo}
         onCreado={handleTableroCreado}
+        onEliminado={handleTableroEliminado}
         abiertoMobile={sidebarAbiertoMobile}
         onCerrarMobile={() => setSidebarAbiertoMobile(false)}
         paletaColores={paletaColores}

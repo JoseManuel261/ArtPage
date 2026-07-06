@@ -89,10 +89,85 @@ export function hslToHex(h: number, s: number, l: number): string {
 }
 
 /**
+ * Version recomendada: analiza el archivo ANTES de subirlo, leyendo
+ * directamente el File/Blob local con un object URL. Al ser same-origin
+ * (blob:) nunca hay problema de CORS ni de "canvas contaminado", a
+ * diferencia de analizar la imagen ya subida desde otro dominio.
+ */
+export function extraerColorDominanteDeArchivo(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+
+    const limpiar = () => URL.revokeObjectURL(objectUrl);
+
+    img.onload = () => {
+      try {
+        const tam = 48;
+        const canvas = document.createElement("canvas");
+        canvas.width = tam;
+        canvas.height = tam;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) {
+          limpiar();
+          return resolve("#ff2e88");
+        }
+
+        ctx.drawImage(img, 0, 0, tam, tam);
+        const { data } = ctx.getImageData(0, 0, tam, tam);
+
+        let rTotal = 0;
+        let gTotal = 0;
+        let bTotal = 0;
+        let pesoTotal = 0;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const alpha = data[i + 3];
+          if (alpha < 32) continue;
+
+          const { s, l } = rgbToHsl(r, g, b);
+          const peso = 0.15 + (s / 100) * 0.85 * (1 - Math.abs(l - 50) / 50);
+
+          rTotal += r * peso;
+          gTotal += g * peso;
+          bTotal += b * peso;
+          pesoTotal += peso;
+        }
+
+        limpiar();
+
+        if (pesoTotal === 0) return resolve("#ff2e88");
+        resolve(
+          rgbToHex(rTotal / pesoTotal, gTotal / pesoTotal, bTotal / pesoTotal)
+        );
+      } catch {
+        limpiar();
+        resolve("#ff2e88");
+      }
+    };
+
+    img.onerror = () => {
+      limpiar();
+      resolve("#ff2e88");
+    };
+
+    img.src = objectUrl;
+  });
+}
+
+/**
  * Carga una imagen (incluso de otro origen, como Supabase Storage) y
  * calcula su color dominante muestreando pixeles en un canvas pequeño.
  * Se descarta el fondo casi-negro/casi-blanco cuando es posible, para
  * priorizar el color "con caracter" de la imagen en vez del vacio.
+ *
+ * Nota: si el origen remoto no envia cabeceras CORS permisivas, el
+ * navegador puede bloquear la lectura de pixeles. Por eso el flujo de
+ * subida usa `extraerColorDominanteDeArchivo` (arriba) sobre el
+ * archivo local en vez de esta funcion.
  */
 export function extraerColorDominante(url: string): Promise<string> {
   return new Promise((resolve) => {

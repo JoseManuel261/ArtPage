@@ -1,16 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
-import { Upload, Loader2, ScanLine, Palette } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Upload, Loader2, ScanLine, Palette, X } from "lucide-react";
 import { supabase, STICKERS_BUCKET } from "@/lib/supabaseClient";
 import type { FilterType, Sticker, Tablero } from "@/lib/types";
-import { calcularEstadoAnimo, extraerColorDominante } from "@/lib/colorAnalysis";
+import {
+  calcularEstadoAnimo,
+  extraerColorDominanteDeArchivo,
+} from "@/lib/colorAnalysis";
 
 interface StickerCanvasProps {
   tablero: Tablero | null;
-  /** Notifica hacia arriba la paleta de colores detectada, para mostrarla
-   * en otras partes de la interfaz (ej. la barra lateral). */
   onPaletaChange?: (colores: string[], etiqueta: string) => void;
 }
 
@@ -24,11 +25,25 @@ function randomRotacionInicial() {
   return Math.random() * 30 - 15; // entre -15 y 15 grados
 }
 
+/**
+ * Deriva la ruta interna de Storage a partir de la URL publica, para
+ * poder borrar el archivo del bucket cuando se elimina un sticker.
+ * Las URLs publicas de Supabase tienen el formato:
+ *   .../storage/v1/object/public/<bucket>/<ruta...>
+ */
+function rutaDesdeUrlPublica(url: string): string | null {
+  const marcador = `/object/public/${STICKERS_BUCKET}/`;
+  const idx = url.indexOf(marcador);
+  if (idx === -1) return null;
+  return decodeURIComponent(url.slice(idx + marcador.length));
+}
+
 export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvasProps) {
   const [stickers, setStickers] = useState<Sticker[]>([]);
   const [cargando, setCargando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [arrastrandoArchivo, setArrastrandoArchivo] = useState(false);
+  const [stickerAEliminar, setStickerAEliminar] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const maxZRef = useRef(1);
@@ -57,10 +72,6 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
             (max, s) => Math.max(max, s.z_index),
             1
           );
-
-          if (data.length === 0) {
-            await sembrarStickersDefault(tablero!.id);
-          }
         }
         setCargando(false);
       }
@@ -73,50 +84,17 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tablero?.id]);
 
-  async function sembrarStickersDefault(tableroId: string) {
-    const defaults = [
-      { texto: "SIN SEÑAL", x: 80, y: 60, color: "#ff2e88" },
-      { texto: "COLAGE.EXE", x: 260, y: 140, color: "#22e8ff" },
-      { texto: "CONFIA EN EL RUIDO", x: 140, y: 260, color: "#f5ff00" },
-    ];
-    const svgToDataUrl = (texto: string, color: string) => {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='260' height='90'>
-        <rect width='100%' height='100%' fill='#0a0a0a'/>
-        <text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle'
-          font-family='monospace' font-size='20' font-weight='bold' fill='${color}'>${texto}</text>
-      </svg>`;
-      return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-    };
-
-    const nuevos = defaults.map((d, i) => ({
-      tablero_id: tableroId,
-      image_url: svgToDataUrl(d.texto, d.color),
-      x: d.x,
-      y: d.y,
-      rotation: randomRotacionInicial(),
-      scale: 1,
-      filter_type: "raw" as FilterType,
-      z_index: i + 1,
-      dominant_color: d.color,
-    }));
-
-    const { data, error } = await supabase
-      .from("stickers")
-      .insert(nuevos)
-      .select();
-
-    if (!error && data) {
-      setStickers(data as Sticker[]);
-      maxZRef.current = nuevos.length;
-    }
-  }
-
   const subirImagen = useCallback(
     async (file: File) => {
       if (!tablero) return;
       setSubiendo(true);
 
       try {
+        // Analisis de color LOCAL, antes de subir: evita por completo
+        // los problemas de CORS de analizar la imagen ya alojada en
+        // otro dominio, y es igual de gratis (0 llamadas de red extra).
+        const colorDominante = await extraerColorDominanteDeArchivo(file);
+
         const extension = file.name.split(".").pop() || "png";
         const rutaArchivo = `${tablero.id}/${crypto.randomUUID()}.${extension}`;
 
@@ -129,10 +107,6 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
         const { data: urlPublica } = supabase.storage
           .from(STICKERS_BUCKET)
           .getPublicUrl(rutaArchivo);
-
-        const colorDominante = await extraerColorDominante(
-          urlPublica.publicUrl
-        );
 
         const nuevoZ = maxZRef.current + 1;
         maxZRef.current = nuevoZ;
@@ -165,6 +139,31 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
     },
     [tablero]
   );
+
+  async function eliminarSticker(sticker: Sticker) {
+    setStickerAEliminar(null);
+    // Optimista: lo quitamos del lienzo de inmediato.
+    setStickers((prev) => prev.filter((s) => s.id !== sticker.id));
+
+    const { error } = await supabase
+      .from("stickers")
+      .delete()
+      .eq("id", sticker.id);
+
+    if (error) {
+      console.error("Error eliminando sticker:", error.message);
+      return;
+    }
+
+    // Intentamos limpiar tambien el archivo del bucket (si no es un
+    // data-URI, que no vive en Storage).
+    if (!sticker.image_url.startsWith("data:")) {
+      const ruta = rutaDesdeUrlPublica(sticker.image_url);
+      if (ruta) {
+        await supabase.storage.from(STICKERS_BUCKET).remove([ruta]);
+      }
+    }
+  }
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -316,52 +315,108 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
         </div>
       )}
 
-      {stickers.map((sticker) => {
-        const colorSticker = sticker.dominant_color || estadoAnimo.primario;
-        return (
-          <motion.div
-            key={sticker.id}
-            drag
-            dragMomentum={false}
-            onMouseDown={() => traerAlFrente(sticker.id)}
-            onDragEnd={(_, info) => handleDragEnd(sticker, info)}
-            initial={{
-              x: sticker.x,
-              y: sticker.y,
-              rotate: sticker.rotation,
-              scale: 0.6,
-              opacity: 0,
-            }}
-            animate={{
-              x: sticker.x,
-              y: sticker.y,
-              rotate: sticker.rotation,
-              scale: sticker.scale,
-              opacity: 1,
-            }}
-            whileDrag={{ scale: sticker.scale * 1.08, cursor: "grabbing" }}
-            transition={{ type: "spring", stiffness: 260, damping: 20 }}
-            style={{ position: "absolute", zIndex: sticker.z_index, top: 0, left: 0 }}
-            className="cursor-grab select-none touch-none"
-          >
-            <img
-              src={sticker.image_url}
-              alt="sticker"
-              draggable={false}
-              className={`h-24 w-24 border-4 border-white object-cover sm:h-32 sm:w-32 ${
-                FILTER_CLASSES[sticker.filter_type]
-              }`}
-              style={{
-                boxShadow: `6px 6px 0px rgba(0,0,0,0.85), 0 0 22px -4px ${colorSticker}`,
-                filter:
-                  sticker.filter_type === "duotone"
-                    ? "url(#glitch-duotone)"
-                    : undefined,
+      {!cargando && stickers.length === 0 && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
+          <p className="max-w-xs border-4 border-dashed border-punk-paper/20 px-6 py-8 text-center font-mono text-xs text-punk-paper/40">
+            lienzo vacio_
+            <br />
+            arrastra tu primera imagen o usa CARGAR_IMAGEN.exe
+          </p>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {stickers.map((sticker) => {
+          const colorSticker = sticker.dominant_color || estadoAnimo.primario;
+          return (
+            <motion.div
+              key={sticker.id}
+              drag
+              dragMomentum={false}
+              onMouseDown={() => traerAlFrente(sticker.id)}
+              onDragEnd={(_, info) => handleDragEnd(sticker, info)}
+              initial={{
+                x: sticker.x,
+                y: sticker.y,
+                rotate: sticker.rotation,
+                scale: 0.6,
+                opacity: 0,
               }}
-            />
-          </motion.div>
-        );
-      })}
+              animate={{
+                x: sticker.x,
+                y: sticker.y,
+                rotate: sticker.rotation,
+                scale: sticker.scale,
+                opacity: 1,
+              }}
+              exit={{ scale: 0.5, opacity: 0, transition: { duration: 0.2 } }}
+              whileDrag={{ scale: sticker.scale * 1.08, cursor: "grabbing" }}
+              transition={{ type: "spring", stiffness: 260, damping: 20 }}
+              style={{ position: "absolute", zIndex: sticker.z_index, top: 0, left: 0 }}
+              className="group cursor-grab select-none touch-none"
+            >
+              <img
+                src={sticker.image_url}
+                alt="sticker"
+                draggable={false}
+                className={`h-24 w-24 border-4 border-white object-cover sm:h-32 sm:w-32 ${
+                  FILTER_CLASSES[sticker.filter_type]
+                }`}
+                style={{
+                  boxShadow: `6px 6px 0px rgba(0,0,0,0.85), 0 0 22px -4px ${colorSticker}`,
+                  filter:
+                    sticker.filter_type === "duotone"
+                      ? "url(#glitch-duotone)"
+                      : undefined,
+                }}
+              />
+
+              {/* Boton eliminar: aparece al pasar el mouse (o siempre en tactil) */}
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setStickerAEliminar(sticker.id);
+                }}
+                className="absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center border-2 border-black bg-punk-paper text-black opacity-0 shadow-[2px_2px_0px_#000] transition-opacity group-hover:opacity-100 sm:opacity-0"
+                aria-label="Eliminar sticker"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+
+              {/* Confirmacion inline de borrado */}
+              {stickerAEliminar === sticker.id && (
+                <div
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="absolute left-1/2 top-full z-20 mt-2 w-max -translate-x-1/2 border-4 border-black bg-black px-2 py-1.5 font-mono text-[10px] shadow-[4px_4px_0px_#000]"
+                >
+                  <p className="mb-1.5 text-punk-paper">¿Eliminar esta imagen?</p>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        eliminarSticker(sticker);
+                      }}
+                      className="border-2 border-black bg-punk-pink px-2 py-0.5 font-bold text-black"
+                    >
+                      SI, BORRAR
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setStickerAEliminar(null);
+                      }}
+                      className="border-2 border-punk-paper/40 px-2 py-0.5 text-punk-paper/70"
+                    >
+                      cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }
