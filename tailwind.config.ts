@@ -8,11 +8,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        "dedsec-black": "#0a0a0a",
-        "dedsec-fuchsia": "#ff007f",
-        "dedsec-cyan": "#00f3ff",
-        "dedsec-yellow": "#f5ff00",
-        "dedsec-paper": "#e8e4d8",
+        "punk-black": "#0a0a0a",
+        "punk-pink": "#ff007f",
+        "punk-cyan": "#00f3ff",
+        "punk-yellow": "#f5ff00",
+        "punk-paper": "#e8e4d8",
       },
       fontFamily: {
         mono: ["'JetBrains Mono'", "'Courier New'", "monospace"],

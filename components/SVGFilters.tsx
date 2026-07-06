@@ -2,11 +2,11 @@
 
 /**
  * Inyecta filtros SVG globales reutilizables en toda la app.
- * El filtro "dedsec-duotone" remapea cualquier imagen a una gama
+ * El filtro "glitch-duotone" remapea cualquier imagen a una gama
  * de dos tonos: fucsia neon (#ff007f) en las sombras y cian
  * electrico (#00f3ff) en las luces, sobre una base negra profunda.
  *
- * Se referencia desde CSS/Tailwind con: style={{ filter: "url(#dedsec-duotone)" }}
+ * Se referencia desde CSS/Tailwind con: style={{ filter: "url(#glitch-duotone)" }}
  */
 export default function SVGFilters() {
   return (
@@ -16,7 +16,7 @@ export default function SVGFilters() {
       style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }}
     >
       <defs>
-        <filter id="dedsec-duotone" colorInterpolationFilters="sRGB">
+        <filter id="glitch-duotone" colorInterpolationFilters="sRGB">
           {/* 1. Convertimos la imagen a escala de grises primero */}
           <feColorMatrix
             type="matrix"
@@ -42,7 +42,7 @@ export default function SVGFilters() {
         </filter>
 
         {/* Filtro extra: distorsion tipo glitch para hover/estados de error */}
-        <filter id="dedsec-glitch-noise">
+        <filter id="glitch-noise">
           <feTurbulence
             type="fractalNoise"
             baseFrequency="0.02 0.9"

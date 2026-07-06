@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "STICKER BOMB // DEDSEC EDITION",
+  title: "Lienzo Colage // Glitch Art",
   description:
-    "Lienzo interactivo de arte digital inspirado en el hacktivismo, el glitch art y la contracultura de Watch Dogs 2.",
+    "Lienzo interactivo de arte digital inspirado en el glitch art, el fanzine punk y el collage urbano, con paleta ambiental que se adapta al color de tus imagenes.",
 };
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body className="bg-dedsec-black text-dedsec-paper antialiased">
+      <body className="bg-punk-black text-punk-paper antialiased">
         {children}
       </body>
     </html>

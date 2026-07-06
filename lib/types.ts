@@ -16,6 +16,8 @@ export interface Sticker {
   scale: number;
   filter_type: FilterType;
   z_index: number;
+  /** Color dominante detectado en la imagen (hex), calculado en el navegador. */
+  dominant_color: string | null;
   created_at: string;
 }
 
