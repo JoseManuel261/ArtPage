@@ -228,6 +228,157 @@ export function extraerColorDominante(url: string): Promise<string> {
   });
 }
 
+/**
+ * Extrae una PALETA de varios colores representativos de una imagen
+ * (no solo un promedio), usando un mini k-means en espacio RGB sobre
+ * una muestra reducida de pixeles. Sigue siendo 100% local/gratis:
+ * unas pocas iteraciones sobre ~2000 pixeles no cuesta nada de tiempo.
+ *
+ * Se usa sobre el archivo LOCAL (antes de subir) para evitar cualquier
+ * problema de CORS con imagenes ya alojadas en otro dominio.
+ */
+export function extraerPaletaDeArchivo(
+  file: File,
+  k = 5
+): Promise<string[]> {
+  return new Promise((resolve) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    const limpiar = () => URL.revokeObjectURL(objectUrl);
+    const fallback = ["#ff2e88", "#22e8ff", "#f5ff00", "#ff2e88", "#22e8ff"];
+
+    img.onload = () => {
+      try {
+        const tam = 64;
+        const canvas = document.createElement("canvas");
+        canvas.width = tam;
+        canvas.height = tam;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) {
+          limpiar();
+          return resolve(fallback);
+        }
+        ctx.drawImage(img, 0, 0, tam, tam);
+        const { data } = ctx.getImageData(0, 0, tam, tam);
+
+        const puntos: [number, number, number][] = [];
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] < 32) continue;
+          puntos.push([data[i], data[i + 1], data[i + 2]]);
+        }
+        limpiar();
+
+        if (puntos.length === 0) return resolve(fallback);
+
+        // Centroides iniciales: repartidos uniformemente sobre la muestra
+        let centroides: [number, number, number][] = Array.from(
+          { length: k },
+          (_, i) => puntos[Math.floor((i * puntos.length) / k)]
+        );
+
+        let asignacion = new Array(puntos.length).fill(0);
+
+        for (let iter = 0; iter < 6; iter++) {
+          // Asignar cada punto al centroide mas cercano
+          for (let p = 0; p < puntos.length; p++) {
+            let mejor = 0;
+            let mejorDist = Infinity;
+            for (let c = 0; c < centroides.length; c++) {
+              const dr = puntos[p][0] - centroides[c][0];
+              const dg = puntos[p][1] - centroides[c][1];
+              const db = puntos[p][2] - centroides[c][2];
+              const dist = dr * dr + dg * dg + db * db;
+              if (dist < mejorDist) {
+                mejorDist = dist;
+                mejor = c;
+              }
+            }
+            asignacion[p] = mejor;
+          }
+
+          // Recalcular centroides como el promedio de sus puntos
+          const sumas = Array.from({ length: k }, () => [0, 0, 0, 0]);
+          for (let p = 0; p < puntos.length; p++) {
+            const c = asignacion[p];
+            sumas[c][0] += puntos[p][0];
+            sumas[c][1] += puntos[p][1];
+            sumas[c][2] += puntos[p][2];
+            sumas[c][3] += 1;
+          }
+          centroides = sumas.map((s, i) =>
+            s[3] > 0
+              ? ([s[0] / s[3], s[1] / s[3], s[2] / s[3]] as [
+                  number,
+                  number,
+                  number
+                ])
+              : centroides[i]
+          );
+        }
+
+        // Ordenar por tamano de cluster (mas representativo primero)
+        const conteos = new Array(k).fill(0);
+        for (const a of asignacion) conteos[a]++;
+
+        const paleta = centroides
+          .map((c, i) => ({ color: rgbToHex(c[0], c[1], c[2]), peso: conteos[i] }))
+          .sort((a, b) => b.peso - a.peso)
+          .map((c) => c.color);
+
+        resolve(paleta.length > 0 ? paleta : fallback);
+      } catch {
+        limpiar();
+        resolve(fallback);
+      }
+    };
+
+    img.onerror = () => {
+      limpiar();
+      resolve(fallback);
+    };
+
+    img.src = objectUrl;
+  });
+}
+
+/**
+ * A partir de todos los colores de paleta de todos los stickers de un
+ * tablero, elige un puñado de tonos representativos y vivos para armar
+ * un fondo tipo "aurora" con varios puntos de color (no solo 2).
+ * Agrupa por matiz (bins de 30°) y devuelve el color mas vivo de cada
+ * uno de los bins con mas presencia.
+ */
+export function seleccionarColoresDestacados(
+  coloresHex: string[],
+  maxColores = 5
+): string[] {
+  if (coloresHex.length === 0) {
+    return ["#ff2e88", "#22e8ff", "#f5ff00", "#a855f7"];
+  }
+
+  const bins = new Map<number, { color: string; s: number; peso: number }[]>();
+
+  for (const hex of coloresHex) {
+    const { h, s, l } = hexToHsl(hex);
+    if (l < 8 || l > 94) continue; // ignora casi-negro / casi-blanco
+    const bin = Math.floor(h / 30) * 30;
+    const lista = bins.get(bin) || [];
+    lista.push({ color: hex, s, peso: 1 });
+    bins.set(bin, lista);
+  }
+
+  const destacados = Array.from(bins.entries())
+    .map(([, lista]) => {
+      const masVivido = lista.reduce((a, b) => (b.s > a.s ? b : a));
+      return { color: masVivido.color, peso: lista.length };
+    })
+    .sort((a, b) => b.peso - a.peso)
+    .slice(0, maxColores)
+    .map((d) => d.color);
+
+  return destacados.length > 0 ? destacados : ["#ff2e88", "#22e8ff", "#f5ff00"];
+}
+
 export interface EstadoAnimo {
   primario: string;
   secundario: string;

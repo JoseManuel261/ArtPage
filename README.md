@@ -12,31 +12,45 @@ al contenido que subes** — analizado 100% en el navegador, gratis.
 ## 🌈 La pieza central: paleta ambiental adaptativa
 
 Cada vez que subes una imagen, la app la lee en un `<canvas>` oculto del
-navegador y calcula su **color dominante** (sin ninguna IA de pago, sin
-llamadas a servicios externos — es matemática de color pura, corriendo
-en el cliente). Con los colores de todos los stickers de un tablero,
-calcula un **"estado de ánimo"** para ese lienzo:
+navegador (el **archivo local, antes de subirlo** — así se evita
+cualquier problema de CORS) y le extrae una **paleta de 5 colores
+representativos**, usando un mini algoritmo de agrupamiento de color
+(k-means simplificado) que corre en JavaScript puro. Nada de esto pasa
+por una IA de pago ni un servicio externo: es matemática de color
+corriendo en el navegador de quien usa la app.
 
-- El fondo del lienzo se destiñe suavemente hacia esa paleta (gradientes
-  radiales de baja opacidad, con transición de ~2 segundos).
-- Cada sticker tiene un brillo (glow) alrededor tintado con **su propio**
-  color dominante, así que el collage entero cobra cohesión visual.
-- El botón de carga y los acentos de la interfaz también adoptan el
-  color principal detectado.
+Con la paleta acumulada de todos los stickers de un tablero, el lienzo
+construye dos capas de ambiente:
+
+1. **"Ecos" de las fotos mismas** — hasta 5 de las imágenes más
+   recientes se renderizan de fondo, muy difuminadas (`blur` fuerte,
+   opacidad baja, mezcla de color tipo "screen"), flotando despacio.
+   El fondo literalmente muestra formas y colores de tus propias fotos,
+   no solo un tinte plano.
+2. **Fondo tipo aurora** — 4 o 5 manchas de color grandes y difuminadas,
+   tomadas de los tonos más vivos y variados de la paleta detectada
+   (agrupados por matiz, no solo un promedio), flotando lentamente en
+   distintas posiciones del lienzo.
+
+Además:
+- Cada sticker individual tiene un brillo (glow) alrededor tintado con
+  **su propio** color dominante.
+- El botón de carga y los acentos de la interfaz adoptan el color
+  principal detectado.
 - Un indicador en la esquina del lienzo muestra la etiqueta textual del
-  tono detectado (ej. *"fucsia pop"*, *"cian eléctrico"*, *"verde
-  tóxico"*), y la barra lateral muestra una franja con las muestras de
-  color (`paleta_detectada`).
+  tono detectado (ej. *"fucsia pop"*, *"cian eléctrico"*), y la barra
+  lateral muestra una franja con las muestras de color
+  (`paleta_detectada`).
 
-Así que si subes muchas fotos rosadas, el lienzo entero se va tiñendo de
-rosa; si subes fotos frías y azules, se va hacia el cian/violeta. Todo
-por tablero, y se recalcula en vivo con cada imagen nueva.
+Así que si subes muchas fotos rosadas, el lienzo entero se va llenando
+de manchas rosas y hasta las siluetas difuminadas de esas fotos quedan
+flotando de fondo. Con fotos frías y azules, se va hacia el cian/violeta.
 
 **Por qué es gratis:** no se usa ninguna API de visión por computadora
-ni modelo de IA de pago. El análisis de color (promedio ponderado por
-saturación y luminosidad, con media circular de matiz en espacio HSL)
-corre enteramente en JavaScript, en el navegador de quien usa la app —
-cero costo, cero límite de uso, cero llamadas de red adicionales.
+ni modelo de IA de pago. Todo el análisis (clustering de color en RGB,
+selección de tonos vivos por matiz, promedios circulares en HSL) corre
+enteramente en JavaScript, en el navegador — cero costo, cero límite de
+uso, cero llamadas de red adicionales.
 
 Todo el motor vive en [`lib/colorAnalysis.ts`](./lib/colorAnalysis.ts).
 

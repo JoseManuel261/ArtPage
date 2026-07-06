@@ -18,6 +18,8 @@ export interface Sticker {
   z_index: number;
   /** Color dominante detectado en la imagen (hex), calculado en el navegador. */
   dominant_color: string | null;
+  /** Paleta completa de colores representativos (varios tonos), para el fondo tipo aurora. */
+  palette: string[] | null;
   created_at: string;
 }
 

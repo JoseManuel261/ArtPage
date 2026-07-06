@@ -7,7 +7,8 @@ import { supabase, STICKERS_BUCKET } from "@/lib/supabaseClient";
 import type { FilterType, Sticker, Tablero } from "@/lib/types";
 import {
   calcularEstadoAnimo,
-  extraerColorDominanteDeArchivo,
+  extraerPaletaDeArchivo,
+  seleccionarColoresDestacados,
 } from "@/lib/colorAnalysis";
 
 interface StickerCanvasProps {
@@ -22,15 +23,9 @@ const FILTER_CLASSES: Record<FilterType, string> = {
 };
 
 function randomRotacionInicial() {
-  return Math.random() * 30 - 15; // entre -15 y 15 grados
+  return Math.random() * 30 - 15;
 }
 
-/**
- * Deriva la ruta interna de Storage a partir de la URL publica, para
- * poder borrar el archivo del bucket cuando se elimina un sticker.
- * Las URLs publicas de Supabase tienen el formato:
- *   .../storage/v1/object/public/<bucket>/<ruta...>
- */
 function rutaDesdeUrlPublica(url: string): string | null {
   const marcador = `/object/public/${STICKERS_BUCKET}/`;
   const idx = url.indexOf(marcador);
@@ -90,10 +85,10 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
       setSubiendo(true);
 
       try {
-        // Analisis de color LOCAL, antes de subir: evita por completo
-        // los problemas de CORS de analizar la imagen ya alojada en
-        // otro dominio, y es igual de gratis (0 llamadas de red extra).
-        const colorDominante = await extraerColorDominanteDeArchivo(file);
+        // Paleta completa (varios tonos), analizada LOCALMENTE antes de
+        // subir: evita CORS y sigue siendo 100% gratis.
+        const paleta = await extraerPaletaDeArchivo(file, 5);
+        const colorDominante = paleta[0] || "#ff2e88";
 
         const extension = file.name.split(".").pop() || "png";
         const rutaArchivo = `${tablero.id}/${crypto.randomUUID()}.${extension}`;
@@ -121,6 +116,7 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
           filter_type: "raw" as FilterType,
           z_index: nuevoZ,
           dominant_color: colorDominante,
+          palette: paleta,
         };
 
         const { data, error } = await supabase
@@ -142,7 +138,6 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
 
   async function eliminarSticker(sticker: Sticker) {
     setStickerAEliminar(null);
-    // Optimista: lo quitamos del lienzo de inmediato.
     setStickers((prev) => prev.filter((s) => s.id !== sticker.id));
 
     const { error } = await supabase
@@ -155,8 +150,6 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
       return;
     }
 
-    // Intentamos limpiar tambien el archivo del bucket (si no es un
-    // data-URI, que no vive en Storage).
     if (!sticker.image_url.startsWith("data:")) {
       const ruta = rutaDesdeUrlPublica(sticker.image_url);
       if (ruta) {
@@ -207,27 +200,54 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
     if (error) console.error("Error guardando posicion:", error.message);
   }
 
-  const estadoAnimo = useMemo(() => {
-    const colores = stickers
-      .map((s) => s.dominant_color)
-      .filter((c): c is string => Boolean(c));
-    return calcularEstadoAnimo(colores);
-  }, [stickers]);
+  // Todos los colores de paleta de todos los stickers, aplanados.
+  const todosLosColores = useMemo(
+    () => stickers.flatMap((s) => s.palette || (s.dominant_color ? [s.dominant_color] : [])),
+    [stickers]
+  );
+
+  const estadoAnimo = useMemo(
+    () => calcularEstadoAnimo(todosLosColores),
+    [todosLosColores]
+  );
+
+  // 4-5 tonos vivos y variados para el fondo tipo aurora (no solo 2).
+  const coloresAurora = useMemo(
+    () => seleccionarColoresDestacados(todosLosColores, 5),
+    [todosLosColores]
+  );
+
+  // Las ultimas imagenes subidas, usadas como "ecos" difuminados de
+  // fondo: literalmente se ven las fotos, muy borrosas, flotando.
+  const ecos = useMemo(() => stickers.slice(-5), [stickers]);
 
   useEffect(() => {
     if (!onPaletaChange) return;
-    const colores = stickers
-      .map((s) => s.dominant_color)
-      .filter((c): c is string => Boolean(c));
-    onPaletaChange(colores, estadoAnimo.etiqueta);
+    onPaletaChange(todosLosColores, estadoAnimo.etiqueta);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stickers, estadoAnimo.etiqueta]);
+  }, [todosLosColores, estadoAnimo.etiqueta]);
 
   const estiloAmbiente: React.CSSProperties = {
     "--mood-primary": estadoAnimo.primario,
     "--mood-secondary": estadoAnimo.secundario,
     "--mood-glow": estadoAnimo.glow,
   } as React.CSSProperties;
+
+  const posicionesAurora = [
+    { top: "8%", left: "10%" },
+    { top: "70%", left: "78%" },
+    { top: "20%", left: "85%" },
+    { top: "82%", left: "15%" },
+    { top: "45%", left: "45%" },
+  ];
+
+  const posicionesEco = [
+    { top: "5%", left: "5%" },
+    { top: "55%", left: "68%" },
+    { top: "72%", left: "8%" },
+    { top: "10%", left: "62%" },
+    { top: "38%", left: "32%" },
+  ];
 
   if (!tablero) {
     return (
@@ -249,16 +269,53 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
       onDragLeave={() => setArrastrandoArchivo(false)}
       onDrop={handleDrop}
       style={estiloAmbiente}
-      className="art-canvas relative h-full flex-1 overflow-hidden bg-punk-black transition-colors duration-[1500ms]"
+      className="art-canvas relative h-full flex-1 overflow-hidden bg-punk-black"
     >
-      <div
-        className="pointer-events-none absolute inset-0 opacity-40 transition-[background] duration-[2000ms] ease-out"
-        style={{
-          background: `radial-gradient(circle at 20% 15%, var(--mood-primary) 0%, transparent 45%),
-                        radial-gradient(circle at 85% 80%, var(--mood-secondary) 0%, transparent 50%)`,
-        }}
-      />
+      {/* Ecos difuminados de las fotos mismas: el fondo literalmente
+          "es" tus imagenes, muy borrosas y suaves, flotando despacio. */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {ecos.map((s, i) => {
+          const pos = posicionesEco[i % posicionesEco.length];
+          return (
+            <img
+              key={`eco-${s.id}`}
+              src={s.image_url}
+              alt=""
+              aria-hidden="true"
+              className="eco-flotante absolute h-64 w-64 rounded-full object-cover opacity-[0.28] blur-3xl mix-blend-screen"
+              style={{
+                top: pos.top,
+                left: pos.left,
+                animationDelay: `${i * 2.4}s`,
+                animationDuration: `${18 + i * 3}s`,
+              }}
+            />
+          );
+        })}
+      </div>
 
+      {/* Fondo tipo aurora: varios puntos de color de la paleta real */}
+      <div className="pointer-events-none absolute inset-0 opacity-[0.55] transition-[background] duration-[2000ms] ease-out">
+        {coloresAurora.map((color, i) => {
+          const pos = posicionesAurora[i % posicionesAurora.length];
+          return (
+            <div
+              key={`aurora-${i}-${color}`}
+              className="aurora-blob absolute rounded-full blur-3xl"
+              style={{
+                top: pos.top,
+                left: pos.left,
+                width: 380,
+                height: 380,
+                background: color,
+                animationDelay: `${i * 1.8}s`,
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Textura de fondo tipo blueprint */}
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:32px_32px]" />
 
       <div className="pointer-events-none absolute left-2 top-2 z-20 flex max-w-[78%] flex-col gap-2 sm:left-4 sm:top-4 sm:max-w-[60%]">
@@ -317,7 +374,7 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
 
       {!cargando && stickers.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
-          <p className="max-w-xs border-4 border-dashed border-punk-paper/20 px-6 py-8 text-center font-mono text-xs text-punk-paper/40">
+          <p className="max-w-xs border-4 border-dashed border-punk-paper/20 bg-black/40 px-6 py-8 text-center font-mono text-xs text-punk-paper/40">
             lienzo vacio_
             <br />
             arrastra tu primera imagen o usa CARGAR_IMAGEN.exe
@@ -363,7 +420,7 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
                   FILTER_CLASSES[sticker.filter_type]
                 }`}
                 style={{
-                  boxShadow: `6px 6px 0px rgba(0,0,0,0.85), 0 0 22px -4px ${colorSticker}`,
+                  boxShadow: `6px 6px 0px rgba(0,0,0,0.85), 0 0 26px -2px ${colorSticker}`,
                   filter:
                     sticker.filter_type === "duotone"
                       ? "url(#glitch-duotone)"
@@ -371,20 +428,18 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
                 }}
               />
 
-              {/* Boton eliminar: aparece al pasar el mouse (o siempre en tactil) */}
               <button
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
                   setStickerAEliminar(sticker.id);
                 }}
-                className="absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center border-2 border-black bg-punk-paper text-black opacity-0 shadow-[2px_2px_0px_#000] transition-opacity group-hover:opacity-100 sm:opacity-0"
+                className="absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center border-2 border-black bg-punk-paper text-black opacity-0 shadow-[2px_2px_0px_#000] transition-opacity group-hover:opacity-100"
                 aria-label="Eliminar sticker"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
 
-              {/* Confirmacion inline de borrado */}
               {stickerAEliminar === sticker.id && (
                 <div
                   onMouseDown={(e) => e.stopPropagation()}
@@ -417,6 +472,38 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
           );
         })}
       </AnimatePresence>
+
+      <style jsx>{`
+        .eco-flotante {
+          animation-name: flotar-eco;
+          animation-timing-function: ease-in-out;
+          animation-iteration-count: infinite;
+          animation-direction: alternate;
+        }
+        .aurora-blob {
+          animation-name: flotar-aurora;
+          animation-duration: 14s;
+          animation-timing-function: ease-in-out;
+          animation-iteration-count: infinite;
+          animation-direction: alternate;
+        }
+        @keyframes flotar-eco {
+          0% {
+            transform: translate(0, 0) scale(1);
+          }
+          100% {
+            transform: translate(40px, -30px) scale(1.15);
+          }
+        }
+        @keyframes flotar-aurora {
+          0% {
+            transform: translate(0, 0) scale(1);
+          }
+          100% {
+            transform: translate(-30px, 25px) scale(1.2);
+          }
+        }
+      `}</style>
     </div>
   );
 }
