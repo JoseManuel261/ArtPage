@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Terminal, Plus, FolderOpen, Radio, X, Trash2 } from "lucide-react";
 import { supabase, STICKERS_BUCKET } from "@/lib/supabaseClient";
+import { sonidos } from "@/lib/sonido";
 import type { Tablero } from "@/lib/types";
 
 interface SidebarTablerosProps {
@@ -37,7 +38,7 @@ export default function SidebarTableros({
   const [creando, setCreando] = useState(false);
   const [nombreNuevo, setNombreNuevo] = useState("");
   const [guardando, setGuardando] = useState(false);
-  const [tableroAEliminar, setTableroAEliminar] = useState<string | null>(null);
+  const [tableroAEliminar, setTableroAEliminar] = useState<Tablero | null>(null);
   const [eliminando, setEliminando] = useState(false);
   // Colapsar a "riel" angosto solo aplica en escritorio (md+).
   const [colapsadoEscritorio, setColapsadoEscritorio] = useState(false);
@@ -60,6 +61,7 @@ export default function SidebarTableros({
       return;
     }
     if (data) {
+      sonidos.subir();
       onCreado(data as Tablero);
       setNombreNuevo("");
       setCreando(false);
@@ -67,6 +69,7 @@ export default function SidebarTableros({
   }
 
   function handleSeleccionar(t: Tablero) {
+    sonidos.click();
     onSeleccionar(t);
     onCerrarMobile();
   }
@@ -100,6 +103,7 @@ export default function SidebarTableros({
       return;
     }
 
+    sonidos.eliminar();
     onEliminado(tablero.id);
   }
 
@@ -191,59 +195,33 @@ export default function SidebarTableros({
 
               {tableros.map((t) => {
                 const activo = tableroActivo?.id === t.id;
-                const confirmando = tableroAEliminar === t.id;
                 return (
-                  <div key={t.id} className="relative">
-                    <div
-                      className={`group flex w-full items-stretch gap-0 border-4 border-black shadow-[4px_4px_0px_#000] transition-transform hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_#000] ${
-                        activo ? "bg-punk-pink text-black" : "bg-neutral-900 text-punk-paper"
+                  <div
+                    key={t.id}
+                    className={`group flex w-full items-stretch gap-0 border-4 border-black shadow-[4px_4px_0px_#000] transition-transform hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_#000] ${
+                      activo ? "bg-punk-pink text-black" : "bg-neutral-900 text-punk-paper"
+                    }`}
+                  >
+                    <button
+                      onClick={() => handleSeleccionar(t)}
+                      className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-xs"
+                    >
+                      {activo ? (
+                        <Radio className="h-3.5 w-3.5 shrink-0 animate-pulse" />
+                      ) : (
+                        <FolderOpen className="h-3.5 w-3.5 shrink-0 text-punk-cyan" />
+                      )}
+                      <span className="truncate">{t.nombre}</span>
+                    </button>
+                    <button
+                      onClick={() => setTableroAEliminar(t)}
+                      aria-label={`Eliminar tablero ${t.nombre}`}
+                      className={`flex shrink-0 items-center justify-center border-l-4 border-black px-2 opacity-60 hover:opacity-100 ${
+                        activo ? "hover:bg-black hover:text-punk-pink" : "hover:bg-punk-pink hover:text-black"
                       }`}
                     >
-                      <button
-                        onClick={() => handleSeleccionar(t)}
-                        className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-xs"
-                      >
-                        {activo ? (
-                          <Radio className="h-3.5 w-3.5 shrink-0 animate-pulse" />
-                        ) : (
-                          <FolderOpen className="h-3.5 w-3.5 shrink-0 text-punk-cyan" />
-                        )}
-                        <span className="truncate">{t.nombre}</span>
-                      </button>
-                      <button
-                        onClick={() => setTableroAEliminar(t.id)}
-                        aria-label={`Eliminar tablero ${t.nombre}`}
-                        className={`flex shrink-0 items-center justify-center border-l-4 border-black px-2 opacity-60 hover:opacity-100 ${
-                          activo ? "hover:bg-black hover:text-punk-pink" : "hover:bg-punk-pink hover:text-black"
-                        }`}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-
-                    {confirmando && (
-                      <div className="absolute left-0 top-full z-10 mt-1 w-full border-4 border-black bg-black px-2.5 py-2 font-mono text-[10px] shadow-[4px_4px_0px_#000]">
-                        <p className="mb-1.5 text-punk-paper">
-                          ¿Eliminar "{t.nombre}" y todas sus imagenes?
-                        </p>
-                        <div className="flex gap-1.5">
-                          <button
-                            onClick={() => handleEliminarTablero(t)}
-                            disabled={eliminando}
-                            className="border-2 border-black bg-punk-pink px-2 py-0.5 font-bold text-black disabled:opacity-50"
-                          >
-                            {eliminando ? "BORRANDO..." : "SI, BORRAR"}
-                          </button>
-                          <button
-                            onClick={() => setTableroAEliminar(null)}
-                            disabled={eliminando}
-                            className="border-2 border-punk-paper/40 px-2 py-0.5 text-punk-paper/70"
-                          >
-                            cancelar
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 );
               })}
@@ -337,6 +315,34 @@ export default function SidebarTableros({
           }
         `}</style>
       </aside>
+
+      {/* Modal de confirmacion centrado: no depende del tamaño del panel */}
+      {tableroAEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-xs border-4 border-black bg-neutral-900 p-4 font-mono shadow-[6px_6px_0px_#000]">
+            <p className="mb-3 text-center text-xs text-punk-paper">
+              ¿Eliminar el tablero <strong>"{tableroAEliminar.nombre}"</strong> y
+              todas sus imagenes? Esta accion no se puede deshacer.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleEliminarTablero(tableroAEliminar)}
+                disabled={eliminando}
+                className="flex-1 border-2 border-black bg-punk-pink px-3 py-1.5 text-xs font-bold text-black disabled:opacity-50"
+              >
+                {eliminando ? "BORRANDO..." : "SI, BORRAR"}
+              </button>
+              <button
+                onClick={() => setTableroAEliminar(null)}
+                disabled={eliminando}
+                className="flex-1 border-2 border-punk-paper/40 px-3 py-1.5 text-xs text-punk-paper/70"
+              >
+                cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

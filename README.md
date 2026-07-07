@@ -220,3 +220,41 @@ inmediato, gratuito e ilimitado, sin llamadas a APIs de imagen de pago.
   subirla, y se guarda en la base de datos — así el "estado de ánimo"
   del lienzo es instantáneo en cada carga, sin tener que re-analizar
   las imágenes cada vez.
+
+---
+
+## ✨ Generar imágenes con IA (gratis, sin cuenta)
+
+Además de subir tus propias fotos, hay un botón **GENERAR_IA.exe** que
+te deja escribir una descripción (ej. *"corazón de neón fucsia estilo
+glitch"*) y crea una imagen con IA para agregar directo al lienzo.
+Usa [Pollinations.ai](https://pollinations.ai), un servicio gratuito
+y sin necesidad de cuenta ni llave de API. La imagen generada se
+descarga y se vuelve a subir a tu propio Storage de Supabase, asi que
+queda guardada de forma permanente sin depender de que el servicio
+externo siga disponible para siempre.
+
+## 📝 Cartelitos de texto
+
+El botón **AÑADIR_TEXTO.exe** te deja escribir un mensaje corto (hasta
+140 caracteres), elegir una de 5 tipografías expresivas (marcador,
+manuscrita, cómic, terminal, impacto) y un color de fondo — y se agrega
+al lienzo como un cartelito más, con el mismo comportamiento que las
+fotos: se puede arrastrar, rotar, redimensionar con la rueda del mouse,
+y eliminar.
+
+## 🛠️ Otras mejoras de esta version
+
+- **Redimensionar stickers**: pasa el mouse sobre cualquier sticker y
+  usa la rueda para agrandarlo o achicarlo.
+- **Cambiar filtro por sticker**: cada foto tiene un boton para ciclar
+  entre RAW / HACK (invertido y saturado) / DUO (duotono neon).
+- **Exportar el lienzo como PNG**: boton "guardar.png" arriba a la
+  derecha, compone todos los stickers (fotos y cartelitos) en una sola
+  imagen para imprimir o compartir.
+- **Sonido**: pequeños efectos tipo 8-bit generados en vivo (Web Audio
+  API, sin archivos de audio) al subir/eliminar/cambiar filtro, con
+  boton para silenciar.
+- **Confirmaciones a prueba de pantallas pequeñas**: los dialogos de
+  "¿eliminar esto?" ahora son modales centrados, no popovers que se
+  puedan cortar en movil.
