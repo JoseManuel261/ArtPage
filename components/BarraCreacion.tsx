@@ -31,7 +31,7 @@ export default function BarraCreacion({
   const [arrastrando, setArrastrando] = useState(false);
   const [mostrarTexto, setMostrarTexto] = useState(false);
   const [textoNuevo, setTextoNuevo] = useState("");
-  const [fuenteNueva, setFuenteNueva] = useState(FUENTES_CARTELITO[0].valor);
+  const [fuenteNueva, setFuenteNueva] = useState<string>(FUENTES_CARTELITO[0].valor);
   const [colorNuevo, setColorNuevo] = useState(COLORES_CARTELITO[0]);
 
   const [mostrarIA, setMostrarIA] = useState(false);
