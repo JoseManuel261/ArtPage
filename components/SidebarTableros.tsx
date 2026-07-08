@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Terminal, Plus, FolderOpen, Radio, X, Trash2 } from "lucide-react";
+import { Terminal, Plus, FolderOpen, Radio, X, Trash2, Lock } from "lucide-react";
 import { supabase, STICKERS_BUCKET } from "@/lib/supabaseClient";
 import { sonidos } from "@/lib/sonido";
-import type { Tablero } from "@/lib/types";
+import type { ModoTablero, Tablero, TemaVisual } from "@/lib/types";
+import { MODOS_TABLERO, TEMAS_VISUALES } from "@/lib/types";
 
 interface SidebarTablerosProps {
   tableros: Tablero[];
@@ -37,6 +38,9 @@ export default function SidebarTableros({
 }: SidebarTablerosProps) {
   const [creando, setCreando] = useState(false);
   const [nombreNuevo, setNombreNuevo] = useState("");
+  const [modoNuevo, setModoNuevo] = useState<ModoTablero>("collage");
+  const [temaNuevo, setTemaNuevo] = useState<TemaVisual>("neon");
+  const [fechaNueva, setFechaNueva] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [tableroAEliminar, setTableroAEliminar] = useState<Tablero | null>(null);
   const [eliminando, setEliminando] = useState(false);
@@ -50,7 +54,12 @@ export default function SidebarTableros({
 
     const { data, error } = await supabase
       .from("tableros")
-      .insert({ nombre })
+      .insert({
+        nombre,
+        modo: modoNuevo,
+        tema_visual: temaNuevo,
+        fecha_revelacion: fechaNueva ? new Date(fechaNueva).toISOString() : null,
+      })
       .select()
       .single();
 
@@ -64,6 +73,9 @@ export default function SidebarTableros({
       sonidos.subir();
       onCreado(data as Tablero);
       setNombreNuevo("");
+      setModoNuevo("collage");
+      setTemaNuevo("neon");
+      setFechaNueva("");
       setCreando(false);
     }
   }
@@ -195,6 +207,7 @@ export default function SidebarTableros({
 
               {tableros.map((t) => {
                 const activo = tableroActivo?.id === t.id;
+                const bloqueado = t.fecha_revelacion && new Date(t.fecha_revelacion) > new Date();
                 return (
                   <div
                     key={t.id}
@@ -212,6 +225,7 @@ export default function SidebarTableros({
                         <FolderOpen className="h-3.5 w-3.5 shrink-0 text-punk-cyan" />
                       )}
                       <span className="truncate">{t.nombre}</span>
+                      {bloqueado && <Lock className="h-3 w-3 shrink-0 opacity-60" />}
                     </button>
                     <button
                       onClick={() => setTableroAEliminar(t)}
@@ -257,12 +271,63 @@ export default function SidebarTableros({
                       autoFocus
                       value={nombreNuevo}
                       onChange={(e) => setNombreNuevo(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleCrearTablero();
-                      }}
                       placeholder="ej: regalo_para_ale"
                       className="w-full border-4 border-black bg-black px-2 py-1.5 text-xs text-punk-cyan outline-none placeholder:text-punk-paper/30 focus:border-punk-cyan"
                     />
+
+                    <p className="mt-2 text-[9px] uppercase tracking-wider text-punk-paper/50">
+                      modo de interfaz
+                    </p>
+                    <div className="flex flex-col gap-1">
+                      {MODOS_TABLERO.map((m) => (
+                        <button
+                          key={m.valor}
+                          onClick={() => setModoNuevo(m.valor)}
+                          className={`border-2 px-2 py-1 text-left text-[10px] ${
+                            modoNuevo === m.valor
+                              ? "border-punk-cyan bg-punk-cyan text-black"
+                              : "border-punk-paper/30 text-punk-paper/70"
+                          }`}
+                        >
+                          <span className="font-bold">{m.etiqueta}</span>
+                          <span className="block text-[9px] opacity-70">{m.descripcion}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <p className="mt-2 text-[9px] uppercase tracking-wider text-punk-paper/50">
+                      tema visual
+                    </p>
+                    <div className="flex gap-1">
+                      {TEMAS_VISUALES.map((t) => (
+                        <button
+                          key={t.valor}
+                          onClick={() => setTemaNuevo(t.valor)}
+                          className={`flex-1 border-2 px-2 py-1 text-[10px] ${
+                            temaNuevo === t.valor
+                              ? "border-punk-cyan bg-punk-cyan text-black"
+                              : "border-punk-paper/30 text-punk-paper/70"
+                          }`}
+                        >
+                          {t.etiqueta}
+                        </button>
+                      ))}
+                    </div>
+
+                    <p className="mt-2 flex items-center gap-1 text-[9px] uppercase tracking-wider text-punk-paper/50">
+                      <Lock className="h-3 w-3" /> capsula del tiempo (opcional)
+                    </p>
+                    <input
+                      type="datetime-local"
+                      value={fechaNueva}
+                      onChange={(e) => setFechaNueva(e.target.value)}
+                      className="w-full border-2 border-punk-paper/30 bg-black px-2 py-1 text-[10px] text-punk-paper outline-none focus:border-punk-cyan"
+                    />
+                    {fechaNueva && (
+                      <p className="text-[9px] text-punk-paper/50">
+                        se bloqueara hasta esa fecha con cuenta regresiva
+                      </p>
+                    )}
                     <button
                       onClick={handleCrearTablero}
                       disabled={guardando || !nombreNuevo.trim()}

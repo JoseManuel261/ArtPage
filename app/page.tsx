@@ -5,6 +5,10 @@ import { Menu } from "lucide-react";
 import SVGFilters from "@/components/SVGFilters";
 import SidebarTableros from "@/components/SidebarTableros";
 import StickerCanvas from "@/components/StickerCanvas";
+import VistaAlbum from "@/components/VistaAlbum";
+import VistaTimeline from "@/components/VistaTimeline";
+import VistaPresentacion from "@/components/VistaPresentacion";
+import CapsulaTiempo from "@/components/CapsulaTiempo";
 import { supabase } from "@/lib/supabaseClient";
 import { calcularEstadoAnimo } from "@/lib/colorAnalysis";
 import type { Tablero } from "@/lib/types";
@@ -105,6 +109,35 @@ export default function Page() {
         <div className="flex flex-1 items-center justify-center font-mono text-sm text-punk-cyan">
           &gt; inicializando_sistema...
         </div>
+      ) : tableroActivo?.fecha_revelacion && new Date(tableroActivo.fecha_revelacion) > new Date() ? (
+        <CapsulaTiempo
+          fechaRevelacion={tableroActivo.fecha_revelacion}
+          nombreTablero={tableroActivo.nombre}
+        />
+      ) : tableroActivo?.modo === "album" ? (
+        <VistaAlbum
+          tablero={tableroActivo}
+          onPaletaChange={(colores, etiqueta) => {
+            setPaletaColores(colores);
+            setPaletaEtiqueta(etiqueta);
+          }}
+        />
+      ) : tableroActivo?.modo === "timeline" ? (
+        <VistaTimeline
+          tablero={tableroActivo}
+          onPaletaChange={(colores, etiqueta) => {
+            setPaletaColores(colores);
+            setPaletaEtiqueta(etiqueta);
+          }}
+        />
+      ) : tableroActivo?.modo === "presentacion" ? (
+        <VistaPresentacion
+          tablero={tableroActivo}
+          onPaletaChange={(colores, etiqueta) => {
+            setPaletaColores(colores);
+            setPaletaEtiqueta(etiqueta);
+          }}
+        />
       ) : (
         <StickerCanvas
           tablero={tableroActivo}

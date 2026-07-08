@@ -258,3 +258,44 @@ y eliminar.
 - **Confirmaciones a prueba de pantallas pequeñas**: los dialogos de
   "¿eliminar esto?" ahora son modales centrados, no popovers que se
   puedan cortar en movil.
+
+---
+
+## 🧩 4 modos de interfaz (elegibles por tablero)
+
+Ya no existe un solo formato de lienzo. Al crear un tablero, eliges:
+
+- **Collage libre** — el lienzo original: arrastra, rota y superpone
+  libremente.
+- **Álbum** — los recuerdos se agrupan en páginas que se voltean con
+  una animación 3D, como un libro físico.
+- **Línea de tiempo** — todo ordenado cronológicamente sobre una línea
+  horizontal navegable, con la fecha de cada recuerdo.
+- **Presentación** — un recorrido automático tipo diapositivas por
+  todos los recuerdos, con controles de play/pausa/anterior/siguiente.
+
+Cada modo comparte la misma base de datos y las mismas herramientas de
+creación (subir foto, generar con IA, añadir cartelito) — cambiar de
+modo no mueve ni pierde nada, solo cambia cómo se presenta.
+
+## 🎨 3 temas visuales
+
+Además del modo, cada tablero tiene un tema: **Neón/Glitch** (el
+original), **Scrapbook vintage** (tonos cálidos, tipografía
+manuscrita) o **Pastel suave**. Se define en `lib/temas.ts`.
+
+## ⏳ Cápsula del tiempo
+
+Al crear un tablero puedes ponerle una fecha de revelación. Mientras
+esa fecha no llegue, el tablero se muestra bloqueado con una cuenta
+regresiva en vivo (días/horas/min/seg) en vez de su contenido — ideal
+para que el regalo se "abra" justo el día especial.
+
+## 🏗️ Arquitectura (para quien quiera seguir extendiendo)
+
+Toda la lógica de datos (subir, IA, texto, eliminar, filtro, escala,
+paleta) vive en un solo lugar: `lib/useLienzo.ts`, un hook reutilizado
+por los 4 modos. Las piezas de UI compartidas —`BarraCreacion`,
+`ModalEliminar`, `TarjetaSticker`— tampoco se repiten por modo. Si se
+agrega un modo 5 en el futuro, solo hay que construir cómo se ve/navega,
+no repetir la lógica de Supabase.

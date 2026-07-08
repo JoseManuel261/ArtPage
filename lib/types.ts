@@ -3,9 +3,19 @@ export type FilterType = "raw" | "hackeado" | "duotone";
 /** "imagen": foto subida o generada con IA. "texto": cartelito de texto. */
 export type TipoSticker = "imagen" | "texto";
 
+/** Los 4 "formatos" de interfaz que puede tener un tablero. */
+export type ModoTablero = "collage" | "album" | "timeline" | "presentacion";
+
+/** Temas visuales, cada uno con su propia paleta/tipografia/textura. */
+export type TemaVisual = "neon" | "scrapbook" | "pastel";
+
 export interface Tablero {
   id: string;
   nombre: string;
+  modo: ModoTablero;
+  tema_visual: TemaVisual;
+  /** Si tiene fecha futura, el tablero queda bloqueado hasta entonces. */
+  fecha_revelacion: string | null;
   created_at: string;
 }
 
@@ -20,22 +30,16 @@ export interface Sticker {
   scale: number;
   filter_type: FilterType;
   z_index: number;
-  /** Color dominante detectado en la imagen (hex), calculado en el navegador. */
   dominant_color: string | null;
-  /** Paleta completa de colores representativos (varios tonos), para el fondo tipo aurora. */
   palette: string[] | null;
-  /** Contenido del cartelito, solo si tipo === "texto". */
   texto: string | null;
-  /** Color de fondo del cartelito, solo si tipo === "texto". */
   color_fondo: string | null;
-  /** Fuente tipografica del cartelito, solo si tipo === "texto". */
   fuente: string | null;
   created_at: string;
 }
 
 export type NuevoSticker = Omit<Sticker, "id" | "created_at">;
 
-/** Fuentes disponibles para los cartelitos de texto (Google Fonts, gratis). */
 export const FUENTES_CARTELITO = [
   { valor: "'Permanent Marker', cursive", etiqueta: "Marcador" },
   { valor: "'Caveat', cursive", etiqueta: "Manuscrita" },
@@ -43,3 +47,16 @@ export const FUENTES_CARTELITO = [
   { valor: "'VT323', monospace", etiqueta: "Terminal" },
   { valor: "'Archivo Black', sans-serif", etiqueta: "Impacto" },
 ] as const;
+
+export const MODOS_TABLERO: { valor: ModoTablero; etiqueta: string; descripcion: string }[] = [
+  { valor: "collage", etiqueta: "Collage libre", descripcion: "Arrastra y superpone, como un corcho de fotos" },
+  { valor: "album", etiqueta: "Álbum", descripcion: "Páginas que se voltean, como un libro de recuerdos" },
+  { valor: "timeline", etiqueta: "Línea de tiempo", descripcion: "Todo ordenado cronológicamente" },
+  { valor: "presentacion", etiqueta: "Presentación", descripcion: "Recorrido automático tipo diapositivas" },
+];
+
+export const TEMAS_VISUALES: { valor: TemaVisual; etiqueta: string }[] = [
+  { valor: "neon", etiqueta: "Neón / Glitch" },
+  { valor: "scrapbook", etiqueta: "Scrapbook vintage" },
+  { valor: "pastel", etiqueta: "Pastel suave" },
+];
