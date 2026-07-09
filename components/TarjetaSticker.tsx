@@ -1,9 +1,10 @@
 "use client";
 
-import { Wand2, X } from "lucide-react";
+import { Heart, Wand2, X } from "lucide-react";
 import type { FilterType, Sticker } from "@/lib/types";
 import { FUENTES_CARTELITO } from "@/lib/types";
 import { hexToHsl } from "@/lib/colorAnalysis";
+import { useTema } from "@/lib/TemaContext";
 
 const FILTER_CLASSES: Record<FilterType, string> = {
   raw: "",
@@ -24,14 +25,14 @@ interface TarjetaStickerProps {
   tamano?: "normal" | "grande";
   onCambiarFiltro?: (sticker: Sticker) => void;
   onEliminar?: (sticker: Sticker) => void;
+  onAlternarFavorito?: (sticker: Sticker) => void;
   mostrarAcciones?: boolean;
 }
 
 /**
- * Renderiza UN sticker (foto o cartelito de texto) con su look
- * consistente en cualquier modo de interfaz: borde blanco grueso,
- * sombra + glow de color, filtro aplicado. Los botones de accion
- * (cambiar filtro / eliminar) son opcionales segun el modo lo permita.
+ * Renderiza UN sticker (foto o cartelito de texto) con el look del
+ * tema visual activo: borde/sombra/radio segun el tema, brillo de
+ * color propio de la imagen. Los botones de accion son opcionales.
  */
 export default function TarjetaSticker({
   sticker,
@@ -39,21 +40,30 @@ export default function TarjetaSticker({
   tamano = "normal",
   onCambiarFiltro,
   onEliminar,
+  onAlternarFavorito,
   mostrarAcciones = true,
 }: TarjetaStickerProps) {
+  const tema = useTema();
   const dimImagen = tamano === "grande" ? "h-40 w-40 sm:h-56 sm:w-56" : "h-24 w-24 sm:h-32 sm:w-32";
   const dimTexto = tamano === "grande" ? "h-40 w-52 sm:h-56 sm:w-72" : "h-32 w-40 sm:h-40 sm:w-56";
+
+  const bordeMarco = tema.efectosRetro ? "#ffffff" : tema.superficie;
+  const sombraCompleta = tema.efectosRetro
+    ? `${tema.sombra}, 0 0 26px -2px ${colorGlow}`
+    : `${tema.sombra}, 0 0 20px -6px ${colorGlow}`;
 
   return (
     <div className="group relative inline-block select-none">
       {sticker.tipo === "texto" ? (
         <div
-          className={`flex items-center justify-center border-4 border-white p-3 text-center ${dimTexto}`}
+          className={`flex items-center justify-center p-3 text-center ${dimTexto}`}
           style={{
             backgroundColor: sticker.color_fondo || "#fff4d6",
             color: colorTextoLegible(sticker.color_fondo || "#fff4d6"),
             fontFamily: sticker.fuente || FUENTES_CARTELITO[0].valor,
-            boxShadow: `6px 6px 0px rgba(0,0,0,0.85), 0 0 26px -2px ${colorGlow}`,
+            border: `${tema.bordeGrosor}px solid ${bordeMarco}`,
+            borderRadius: tema.bordeRadio,
+            boxShadow: sombraCompleta,
           }}
         >
           <p className="line-clamp-6 text-base leading-snug sm:text-xl">{sticker.texto}</p>
@@ -63,12 +73,37 @@ export default function TarjetaSticker({
           src={sticker.image_url}
           alt="sticker"
           draggable={false}
-          className={`border-4 border-white object-cover ${dimImagen} ${FILTER_CLASSES[sticker.filter_type]}`}
+          className={`object-cover ${dimImagen} ${FILTER_CLASSES[sticker.filter_type]}`}
           style={{
-            boxShadow: `6px 6px 0px rgba(0,0,0,0.85), 0 0 26px -2px ${colorGlow}`,
+            border: `${tema.bordeGrosor}px solid ${bordeMarco}`,
+            borderRadius: tema.bordeRadio,
+            boxShadow: sombraCompleta,
             filter: sticker.filter_type === "duotone" ? "url(#glitch-duotone)" : undefined,
           }}
         />
+      )}
+
+      {onAlternarFavorito && (
+        <button
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAlternarFavorito(sticker);
+          }}
+          className={`absolute -left-2 -top-2 z-10 flex h-6 w-6 items-center justify-center transition-opacity ${
+            sticker.favorito ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+          style={{
+            border: `2px solid ${tema.efectosRetro ? "#000" : "transparent"}`,
+            borderRadius: tema.bordeRadio / 3,
+            backgroundColor: sticker.favorito ? tema.acento : `${tema.superficie}dd`,
+            color: sticker.favorito ? tema.fondo : tema.textoSuave,
+            boxShadow: tema.sombraChica,
+          }}
+          aria-label={sticker.favorito ? "Quitar de favoritos" : "Marcar como favorito"}
+        >
+          <Heart className="h-3.5 w-3.5" fill={sticker.favorito ? "currentColor" : "none"} />
+        </button>
       )}
 
       {mostrarAcciones && (onCambiarFiltro || onEliminar) && (
@@ -80,7 +115,14 @@ export default function TarjetaSticker({
                 e.stopPropagation();
                 onCambiarFiltro(sticker);
               }}
-              className="flex h-6 items-center gap-0.5 border-2 border-black bg-punk-cyan px-1 text-[8px] font-bold text-black shadow-[2px_2px_0px_#000]"
+              className="flex h-6 items-center gap-0.5 px-1 text-[8px] font-bold"
+              style={{
+                border: `2px solid ${tema.efectosRetro ? "#000" : "transparent"}`,
+                borderRadius: tema.bordeRadio / 3,
+                backgroundColor: tema.acentoSecundario,
+                color: tema.fondo,
+                boxShadow: tema.sombraChica,
+              }}
               title={`Filtro actual: ${ETIQUETA_FILTRO[sticker.filter_type]}`}
             >
               <Wand2 className="h-3 w-3" />
@@ -94,7 +136,14 @@ export default function TarjetaSticker({
                 e.stopPropagation();
                 onEliminar(sticker);
               }}
-              className="flex h-6 w-6 items-center justify-center border-2 border-black bg-punk-paper text-black shadow-[2px_2px_0px_#000]"
+              className="flex h-6 w-6 items-center justify-center"
+              style={{
+                border: `2px solid ${tema.efectosRetro ? "#000" : "transparent"}`,
+                borderRadius: tema.bordeRadio / 3,
+                backgroundColor: tema.superficie,
+                color: tema.texto,
+                boxShadow: tema.sombraChica,
+              }}
               aria-label="Eliminar"
             >
               <X className="h-3.5 w-3.5" />

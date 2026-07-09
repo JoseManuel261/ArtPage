@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Lienzo Colage // Glitch Art",
+  title: "Lienzo Colage",
   description:
-    "Lienzo interactivo de arte digital inspirado en el glitch art, el fanzine punk y el collage urbano, con paleta ambiental que se adapta al color de tus imagenes.",
+    "Lienzo interactivo de recuerdos: sube fotos, escribe cartelitos, genera imagenes con IA, y elige entre varios modos y temas visuales — collage, album, linea de tiempo, presentacion y constelacion.",
 };
 
 export default function RootLayout({
@@ -14,7 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body className="bg-punk-black text-punk-paper antialiased">
+      {/* El color real de fondo lo pone cada pagina segun el tema activo;
+          este es solo un neutro de espera para evitar un flash blanco/negro
+          antes de que React hidrate. */}
+      <body className="bg-[#fafaf9] text-[#1c1917] antialiased">
         {children}
       </body>
     </html>

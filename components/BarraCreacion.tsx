@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Upload, Loader2, Sparkles, Type } from "lucide-react";
 import { FUENTES_CARTELITO } from "@/lib/types";
+import { useTema } from "@/lib/TemaContext";
 
 const COLORES_CARTELITO = ["#fff4d6", "#ffd6e8", "#d6f5ff", "#e2d6ff", "#d6ffe0", "#0a0a0a"];
 
@@ -16,9 +17,10 @@ interface BarraCreacionProps {
 }
 
 /**
- * Barra de herramientas compartida entre los 4 modos de interfaz:
+ * Barra de herramientas compartida entre los 5 modos de interfaz:
  * cargar imagen, generar con IA (Pollinations, gratis) y añadir un
- * cartelito de texto. Evita triplicar este codigo en cada vista.
+ * cartelito de texto. Se adapta al tema visual activo (colores,
+ * bordes, tipografia, lenguaje terminal vs simple).
  */
 export default function BarraCreacion({
   subiendo,
@@ -28,6 +30,9 @@ export default function BarraCreacion({
   onGenerarIA,
   onCrearTexto,
 }: BarraCreacionProps) {
+  const tema = useTema();
+  const t = tema.etiquetasTerminal;
+
   const [arrastrando, setArrastrando] = useState(false);
   const [mostrarTexto, setMostrarTexto] = useState(false);
   const [textoNuevo, setTextoNuevo] = useState("");
@@ -56,25 +61,47 @@ export default function BarraCreacion({
       setPromptIA("");
       setMostrarIA(false);
     } catch {
-      setErrorIA("No se pudo generar la imagen. Intenta con otra descripcion.");
+      setErrorIA("No se pudo generar la imagen. Intenta con otra descripción.");
     } finally {
       setGenerandoIA(false);
     }
   }
 
+  const estiloBotonBase = {
+    borderWidth: tema.bordeGrosor,
+    borderStyle: "solid" as const,
+    borderColor: tema.efectosRetro ? "#000" : "transparent",
+    borderRadius: tema.bordeRadio / 2,
+    boxShadow: tema.sombraChica,
+    fontFamily: tema.fuenteUI,
+  };
+
+  const estiloModal = {
+    backgroundColor: tema.superficie,
+    borderRadius: tema.bordeRadio,
+    boxShadow: tema.sombra,
+    color: tema.texto,
+    fontFamily: tema.fuenteUI,
+  };
+
+  const estiloInput = {
+    backgroundColor: tema.fondo,
+    color: tema.texto,
+    border: `1px solid ${tema.textoSuave}44`,
+    borderRadius: tema.bordeRadio / 2,
+  };
+
   return (
     <>
       <div className="pointer-events-auto flex flex-wrap gap-1.5">
         <label
-          className="flex cursor-pointer items-center gap-1.5 border-4 border-black px-2 py-2 font-mono text-[10px] font-bold shadow-[4px_4px_0px_#000] transition-colors sm:px-3 sm:text-[11px]"
-          style={{ backgroundColor: arrastrando ? colorSecundario : colorPrimario, color: "#0a0a0a" }}
+          className="flex cursor-pointer items-center gap-1.5 px-2 py-2 text-[10px] font-bold transition-colors sm:px-3 sm:text-[11px]"
+          style={{ ...estiloBotonBase, backgroundColor: arrastrando ? colorSecundario : colorPrimario, color: "#0a0a0a" }}
         >
-          {subiendo ? (
-            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-          ) : (
-            <Upload className="h-4 w-4 shrink-0" />
-          )}
-          <span className="hidden sm:inline">{subiendo ? "ANALIZANDO..." : "CARGAR_IMAGEN.exe"}</span>
+          {subiendo ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <Upload className="h-4 w-4 shrink-0" />}
+          <span className="hidden sm:inline">
+            {subiendo ? (t ? "ANALIZANDO..." : "Analizando...") : t ? "CARGAR_IMAGEN.exe" : "Subir foto"}
+          </span>
           <input
             type="file"
             accept="image/*"
@@ -89,58 +116,74 @@ export default function BarraCreacion({
 
         <button
           onClick={() => setMostrarIA(true)}
-          className="flex items-center gap-1.5 border-4 border-black bg-punk-paper px-2 py-2 font-mono text-[10px] font-bold text-black shadow-[4px_4px_0px_#000] sm:px-3 sm:text-[11px]"
+          className="flex items-center gap-1.5 px-2 py-2 text-[10px] font-bold sm:px-3 sm:text-[11px]"
+          style={{ ...estiloBotonBase, backgroundColor: tema.superficie, color: tema.texto, border: `${tema.bordeGrosor}px solid ${tema.acentoSecundario}` }}
         >
-          <Sparkles className="h-4 w-4 shrink-0" />
-          <span className="hidden sm:inline">GENERAR_IA.exe</span>
+          <Sparkles className="h-4 w-4 shrink-0" style={{ color: tema.acentoSecundario }} />
+          <span className="hidden sm:inline">{t ? "GENERAR_IA.exe" : "Generar con IA"}</span>
         </button>
 
         <button
           onClick={() => setMostrarTexto(true)}
-          className="flex items-center gap-1.5 border-4 border-black bg-punk-yellow px-2 py-2 font-mono text-[10px] font-bold text-black shadow-[4px_4px_0px_#000] sm:px-3 sm:text-[11px]"
+          className="flex items-center gap-1.5 px-2 py-2 text-[10px] font-bold sm:px-3 sm:text-[11px]"
+          style={{ ...estiloBotonBase, backgroundColor: tema.superficie, color: tema.texto, border: `${tema.bordeGrosor}px solid ${tema.acento}` }}
         >
-          <Type className="h-4 w-4 shrink-0" />
-          <span className="hidden sm:inline">AÑADIR_TEXTO.exe</span>
+          <Type className="h-4 w-4 shrink-0" style={{ color: tema.acento }} />
+          <span className="hidden sm:inline">{t ? "AÑADIR_TEXTO.exe" : "Añadir texto"}</span>
         </button>
       </div>
 
       {mostrarTexto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-sm border-4 border-black bg-neutral-900 p-4 font-mono shadow-[6px_6px_0px_#000]">
-            <p className="mb-2 text-xs text-punk-cyan">nuevo_cartelito.txt</p>
+          <div className="w-full max-w-sm p-4" style={estiloModal}>
+            <p className="mb-2 text-xs" style={{ color: tema.acento }}>
+              {t ? "nuevo_cartelito.txt" : "Nuevo cartelito"}
+            </p>
             <textarea
               autoFocus
               value={textoNuevo}
               onChange={(e) => setTextoNuevo(e.target.value.slice(0, 140))}
               placeholder="Escribe tu mensaje..."
               rows={3}
-              className="mb-3 w-full resize-none border-4 border-black bg-black px-2 py-1.5 text-sm text-punk-paper outline-none placeholder:text-punk-paper/30 focus:border-punk-cyan"
-              style={{ fontFamily: fuenteNueva }}
+              className="mb-3 w-full resize-none px-2 py-1.5 text-sm outline-none"
+              style={{ ...estiloInput, fontFamily: fuenteNueva }}
             />
-            <p className="mb-1 text-[10px] uppercase tracking-wider text-punk-paper/50">tipografia</p>
+            <p className="mb-1 text-[10px] uppercase tracking-wider" style={{ color: tema.textoSuave }}>
+              Tipografía
+            </p>
             <div className="mb-3 flex flex-wrap gap-1.5">
               {FUENTES_CARTELITO.map((f) => (
                 <button
                   key={f.valor}
                   onClick={() => setFuenteNueva(f.valor)}
-                  className={`border-2 px-2 py-1 text-[11px] ${
-                    fuenteNueva === f.valor ? "border-punk-cyan bg-punk-cyan text-black" : "border-punk-paper/30 text-punk-paper/70"
-                  }`}
-                  style={{ fontFamily: f.valor }}
+                  className="px-2 py-1 text-[11px]"
+                  style={{
+                    fontFamily: f.valor,
+                    border: `1px solid ${fuenteNueva === f.valor ? tema.acento : `${tema.textoSuave}44`}`,
+                    backgroundColor: fuenteNueva === f.valor ? tema.acento : "transparent",
+                    color: fuenteNueva === f.valor ? tema.fondo : tema.textoSuave,
+                    borderRadius: tema.bordeRadio / 3,
+                  }}
                 >
                   {f.etiqueta}
                 </button>
               ))}
             </div>
-            <p className="mb-1 text-[10px] uppercase tracking-wider text-punk-paper/50">color de fondo</p>
+            <p className="mb-1 text-[10px] uppercase tracking-wider" style={{ color: tema.textoSuave }}>
+              Color de fondo
+            </p>
             <div className="mb-4 flex gap-1.5">
               {COLORES_CARTELITO.map((c) => (
                 <button
                   key={c}
                   onClick={() => setColorNuevo(c)}
                   aria-label={`Color ${c}`}
-                  className={`h-7 w-7 border-2 ${colorNuevo === c ? "border-punk-cyan" : "border-black"}`}
-                  style={{ backgroundColor: c }}
+                  className="h-7 w-7"
+                  style={{
+                    backgroundColor: c,
+                    border: `2px solid ${colorNuevo === c ? tema.acento : "transparent"}`,
+                    borderRadius: tema.bordeRadio / 3,
+                  }}
                 />
               ))}
             </div>
@@ -148,18 +191,20 @@ export default function BarraCreacion({
               <button
                 onClick={confirmarTexto}
                 disabled={!textoNuevo.trim()}
-                className="flex-1 border-2 border-black bg-punk-yellow px-3 py-1.5 text-xs font-bold text-black disabled:opacity-40"
+                className="flex-1 px-3 py-1.5 text-xs font-bold disabled:opacity-40"
+                style={{ backgroundColor: tema.acento, color: tema.fondo, borderRadius: tema.bordeRadio / 2 }}
               >
-                AÑADIR AL LIENZO
+                Añadir al lienzo
               </button>
               <button
                 onClick={() => {
                   setMostrarTexto(false);
                   setTextoNuevo("");
                 }}
-                className="flex-1 border-2 border-punk-paper/40 px-3 py-1.5 text-xs text-punk-paper/70"
+                className="flex-1 px-3 py-1.5 text-xs"
+                style={{ border: `1px solid ${tema.textoSuave}44`, color: tema.textoSuave, borderRadius: tema.bordeRadio / 2 }}
               >
-                cancelar
+                Cancelar
               </button>
             </div>
           </div>
@@ -168,11 +213,11 @@ export default function BarraCreacion({
 
       {mostrarIA && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-sm border-4 border-black bg-neutral-900 p-4 font-mono shadow-[6px_6px_0px_#000]">
-            <p className="mb-1 flex items-center gap-1.5 text-xs text-punk-cyan">
-              <Sparkles className="h-3.5 w-3.5" /> generar_imagen_ia.exe
+          <div className="w-full max-w-sm p-4" style={estiloModal}>
+            <p className="mb-1 flex items-center gap-1.5 text-xs" style={{ color: tema.acentoSecundario }}>
+              <Sparkles className="h-3.5 w-3.5" /> {t ? "generar_imagen_ia.exe" : "Generar con IA"}
             </p>
-            <p className="mb-2 text-[10px] text-punk-paper/50">
+            <p className="mb-2 text-[10px]" style={{ color: tema.textoSuave }}>
               Describe lo que quieres ver. Gratis, sin cuenta — corre en un
               servicio externo (Pollinations.ai).
             </p>
@@ -183,22 +228,28 @@ export default function BarraCreacion({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !generandoIA) confirmarIA();
               }}
-              placeholder="ej: corazon de neon fucsia estilo glitch"
-              className="mb-3 w-full border-4 border-black bg-black px-2 py-1.5 text-xs text-punk-paper outline-none placeholder:text-punk-paper/30 focus:border-punk-cyan"
+              placeholder="ej: corazón de neón fucsia estilo glitch"
+              className="mb-3 w-full px-2 py-1.5 text-xs outline-none"
+              style={estiloInput}
             />
-            {errorIA && <p className="mb-3 text-[10px] text-punk-pink">{errorIA}</p>}
+            {errorIA && (
+              <p className="mb-3 text-[10px]" style={{ color: tema.acento }}>
+                {errorIA}
+              </p>
+            )}
             <div className="flex gap-2">
               <button
                 onClick={confirmarIA}
                 disabled={generandoIA || !promptIA.trim()}
-                className="flex flex-1 items-center justify-center gap-1.5 border-2 border-black bg-punk-paper px-3 py-1.5 text-xs font-bold text-black disabled:opacity-40"
+                className="flex flex-1 items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold disabled:opacity-40"
+                style={{ backgroundColor: tema.acentoSecundario, color: tema.fondo, borderRadius: tema.bordeRadio / 2 }}
               >
                 {generandoIA ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> GENERANDO...
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Generando...
                   </>
                 ) : (
-                  "GENERAR"
+                  "Generar"
                 )}
               </button>
               <button
@@ -208,9 +259,10 @@ export default function BarraCreacion({
                   setErrorIA(null);
                 }}
                 disabled={generandoIA}
-                className="flex-1 border-2 border-punk-paper/40 px-3 py-1.5 text-xs text-punk-paper/70"
+                className="flex-1 px-3 py-1.5 text-xs"
+                style={{ border: `1px solid ${tema.textoSuave}44`, color: tema.textoSuave, borderRadius: tema.bordeRadio / 2 }}
               >
-                cancelar
+                Cancelar
               </button>
             </div>
           </div>

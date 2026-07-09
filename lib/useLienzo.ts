@@ -239,6 +239,21 @@ export function useLienzo(tablero: Tablero | null) {
     }, 500);
   }, []);
 
+  const alternarFavorito = useCallback((sticker: Sticker) => {
+    const nuevoValor = !sticker.favorito;
+    sonidos.click();
+    setStickers((prev) =>
+      prev.map((s) => (s.id === sticker.id ? { ...s, favorito: nuevoValor } : s))
+    );
+    supabase
+      .from("stickers")
+      .update({ favorito: nuevoValor })
+      .eq("id", sticker.id)
+      .then(({ error }) => {
+        if (error) console.error("Error guardando favorito:", error.message);
+      });
+  }, []);
+
   const todosLosColores = useMemo(
     () => stickers.flatMap((s) => s.palette || (s.dominant_color ? [s.dominant_color] : [])),
     [stickers]
@@ -261,6 +276,7 @@ export function useLienzo(tablero: Tablero | null) {
     actualizarPosicion,
     cambiarFiltro,
     actualizarEscala,
+    alternarFavorito,
     todosLosColores,
     estadoAnimo,
     coloresAurora,

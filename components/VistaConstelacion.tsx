@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import { ScanLine } from "lucide-react";
 import type { Sticker, Tablero } from "@/lib/types";
 import { useLienzo } from "@/lib/useLienzo";
@@ -9,17 +10,41 @@ import BarraCreacion from "./BarraCreacion";
 import ModalEliminar from "./ModalEliminar";
 import TarjetaSticker from "./TarjetaSticker";
 
-interface VistaTimelineProps {
+interface VistaConstelacionProps {
   tablero: Tablero | null;
   onPaletaChange?: (colores: string[], etiqueta: string) => void;
 }
 
-function fechaLegible(fecha: string) {
-  return new Date(fecha).toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric" });
+interface Nodo {
+  sticker: Sticker;
+  x: number;
+  y: number;
 }
 
-/** Modo "Linea de tiempo": todos los recuerdos ordenados cronologicamente. */
-export default function VistaTimeline({ tablero, onPaletaChange }: VistaTimelineProps) {
+/**
+ * Calcula una disposicion en espiral alrededor de un centro, para que
+ * los recuerdos se sientan como una "constelacion" que crece con el
+ * tiempo, en vez de depender de posiciones guardadas manualmente.
+ */
+function calcularLayoutEspiral(stickers: Sticker[], ancho: number, alto: number): Nodo[] {
+  const cx = ancho / 2;
+  const cy = alto / 2;
+  const anguloDorado = 137.5 * (Math.PI / 180); // angulo dorado, distribucion organica
+  const radioBase = 60;
+  const radioPaso = 26;
+
+  return stickers.map((sticker, i) => {
+    const angulo = i * anguloDorado;
+    const radio = radioBase + radioPaso * Math.sqrt(i);
+    return {
+      sticker,
+      x: cx + radio * Math.cos(angulo),
+      y: cy + radio * Math.sin(angulo),
+    };
+  });
+}
+
+export default function VistaConstelacion({ tablero, onPaletaChange }: VistaConstelacionProps) {
   const tema = useTema();
   const {
     stickers, cargando, subiendo, subirArchivoComoSticker, crearCartelitoTexto,
@@ -37,6 +62,15 @@ export default function VistaTimeline({ tablero, onPaletaChange }: VistaTimeline
     [stickers]
   );
 
+  // Lienzo virtual amplio: el layout en espiral crece hacia afuera, asi
+  // que damos espacio de sobra y dejamos que el usuario haga scroll.
+  const ANCHO_VIRTUAL = 1400;
+  const ALTO_VIRTUAL = 1400;
+  const nodos = useMemo(
+    () => calcularLayoutEspiral(ordenados, ANCHO_VIRTUAL, ALTO_VIRTUAL),
+    [ordenados]
+  );
+
   if (!tablero) {
     return (
       <div className="flex h-full flex-1 items-center justify-center" style={{ backgroundColor: tema.fondo }}>
@@ -49,10 +83,6 @@ export default function VistaTimeline({ tablero, onPaletaChange }: VistaTimeline
 
   return (
     <div className="relative flex h-full flex-1 flex-col overflow-hidden" style={{ backgroundColor: tema.fondo }}>
-      {tema.efectosRetro && (
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:32px_32px]" />
-      )}
-
       <div className="relative z-20 flex items-start justify-between gap-2 p-3 sm:p-4">
         <BarraCreacion
           subiendo={subiendo}
@@ -66,54 +96,66 @@ export default function VistaTimeline({ tablero, onPaletaChange }: VistaTimeline
           className="shrink-0 px-2 py-1 text-[9px] sm:text-[10px]"
           style={{ backgroundColor: `${tema.superficie}dd`, color: tema.textoSuave, borderRadius: tema.bordeRadio / 3 }}
         >
-          {tablero.nombre} · {ordenados.length} recuerdos
+          {tablero.nombre} · {ordenados.length} recuerdos conectados
         </span>
       </div>
 
       {cargando && (
         <div className="flex flex-1 items-center justify-center" style={{ color: tema.acentoSecundario }}>
-          <ScanLine className="mr-2 h-4 w-4 animate-pulse" /> Cargando línea de tiempo...
+          <ScanLine className="mr-2 h-4 w-4 animate-pulse" /> Cargando constelación...
         </div>
       )}
 
       {!cargando && ordenados.length === 0 && (
         <div className="flex flex-1 items-center justify-center px-6">
-          <p
-            className="max-w-xs px-6 py-8 text-center text-xs"
-            style={{ color: tema.textoSuave, border: `2px dashed ${tema.textoSuave}33`, borderRadius: tema.bordeRadio }}
-          >
-            Aún no hay recuerdos en esta línea de tiempo.
+          <p className="max-w-xs px-6 py-8 text-center text-xs" style={{ color: tema.textoSuave, border: `2px dashed ${tema.textoSuave}33`, borderRadius: tema.bordeRadio }}>
+            Aún no hay recuerdos para conectar.
           </p>
         </div>
       )}
 
       {!cargando && ordenados.length > 0 && (
-        <div className="relative z-10 flex-1 overflow-x-auto overflow-y-hidden px-8 py-6 sm:px-16">
-          <div className="relative flex h-full min-w-max items-center gap-10 sm:gap-16">
-            <div
-              className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2"
-              style={{ background: `linear-gradient(90deg, ${estadoAnimo.primario}, ${estadoAnimo.secundario})`, borderRadius: tema.bordeRadio }}
-            />
-            {ordenados.map((sticker, i) => (
-              <div
+        <div className="relative z-10 flex-1 overflow-auto">
+          <div className="relative" style={{ width: ANCHO_VIRTUAL, height: ALTO_VIRTUAL }}>
+            <svg
+              className="pointer-events-none absolute inset-0"
+              width={ANCHO_VIRTUAL}
+              height={ALTO_VIRTUAL}
+            >
+              {nodos.slice(1).map((nodo, i) => {
+                const anterior = nodos[i];
+                return (
+                  <line
+                    key={`linea-${nodo.sticker.id}`}
+                    x1={anterior.x}
+                    y1={anterior.y}
+                    x2={nodo.x}
+                    y2={nodo.y}
+                    stroke={nodo.sticker.dominant_color || estadoAnimo.primario}
+                    strokeWidth={2}
+                    strokeOpacity={0.5}
+                    strokeDasharray="4 4"
+                  />
+                );
+              })}
+            </svg>
+
+            {nodos.map(({ sticker, x, y }, i) => (
+              <motion.div
                 key={sticker.id}
-                className={`relative flex flex-col items-center gap-2 ${i % 2 === 0 ? "-translate-y-10" : "translate-y-10"}`}
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.04, type: "spring", stiffness: 220, damping: 20 }}
+                style={{ position: "absolute", left: x, top: y, transform: "translate(-50%, -50%)" }}
               >
-                <div
-                  className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: sticker.dominant_color || estadoAnimo.primario, border: `2px solid ${tema.fondo}` }}
-                />
                 <TarjetaSticker
                   sticker={sticker}
                   colorGlow={sticker.dominant_color || estadoAnimo.primario}
                   onCambiarFiltro={cambiarFiltro}
-                  onAlternarFavorito={alternarFavorito}
                   onEliminar={setStickerAEliminar}
+                  onAlternarFavorito={alternarFavorito}
                 />
-                <span className="whitespace-nowrap text-[9px]" style={{ color: tema.textoSuave }}>
-                  {fechaLegible(sticker.created_at)}
-                </span>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>

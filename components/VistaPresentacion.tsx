@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Pause, Play, ScanLine } from "lucide-react";
 import type { Sticker, Tablero } from "@/lib/types";
 import { useLienzo } from "@/lib/useLienzo";
+import { useTema } from "@/lib/TemaContext";
 import BarraCreacion from "./BarraCreacion";
 import ModalEliminar from "./ModalEliminar";
 import TarjetaSticker from "./TarjetaSticker";
@@ -18,9 +19,10 @@ const SEGUNDOS_POR_DIAPOSITIVA = 4;
 
 /** Modo "Presentacion": recorrido automatico tipo diapositivas por todos los recuerdos. */
 export default function VistaPresentacion({ tablero, onPaletaChange }: VistaPresentacionProps) {
+  const tema = useTema();
   const {
     stickers, cargando, subiendo, subirArchivoComoSticker, crearCartelitoTexto,
-    generarConIA, eliminarSticker, cambiarFiltro, todosLosColores, estadoAnimo,
+    generarConIA, eliminarSticker, cambiarFiltro, alternarFavorito, todosLosColores, estadoAnimo,
   } = useLienzo(tablero);
 
   const [stickerAEliminar, setStickerAEliminar] = useState<Sticker | null>(null);
@@ -49,11 +51,23 @@ export default function VistaPresentacion({ tablero, onPaletaChange }: VistaPres
     if (indice >= ordenados.length) setIndice(0);
   }, [ordenados.length, indice]);
 
+  const estiloEtiqueta = {
+    backgroundColor: `${tema.superficie}dd`,
+    color: tema.textoSuave,
+    borderRadius: tema.bordeRadio / 3,
+  };
+  const estiloBotonRedondo = {
+    backgroundColor: tema.superficie,
+    color: tema.texto,
+    borderRadius: "9999px",
+    boxShadow: tema.sombraChica,
+  };
+
   if (!tablero) {
     return (
-      <div className="flex h-full flex-1 items-center justify-center bg-punk-black">
-        <p className="mx-4 border-4 border-dashed border-punk-pink/40 px-6 py-6 text-center font-mono text-sm text-punk-paper/50">
-          &gt; selecciona o crea un tablero_
+      <div className="flex h-full flex-1 items-center justify-center" style={{ backgroundColor: tema.fondo }}>
+        <p className="mx-4 px-6 py-6 text-center text-sm" style={{ color: tema.textoSuave, border: `2px dashed ${tema.textoSuave}44`, borderRadius: tema.bordeRadio }}>
+          Selecciona o crea un tablero.
         </p>
       </div>
     );
@@ -62,7 +76,7 @@ export default function VistaPresentacion({ tablero, onPaletaChange }: VistaPres
   const actual = ordenados[indice];
 
   return (
-    <div className="relative flex h-full flex-1 flex-col overflow-hidden bg-punk-black">
+    <div className="relative flex h-full flex-1 flex-col overflow-hidden" style={{ backgroundColor: tema.fondo }}>
       <div
         className="pointer-events-none absolute inset-0 opacity-30 transition-[background] duration-[1500ms]"
         style={{
@@ -73,14 +87,11 @@ export default function VistaPresentacion({ tablero, onPaletaChange }: VistaPres
       />
 
       <div className="relative z-20 flex items-start justify-between gap-2 p-3 sm:p-4">
-        <button
-          onClick={() => setMostrarBarra((m) => !m)}
-          className="border-2 border-punk-paper/30 bg-black/70 px-2 py-1 font-mono text-[9px] text-punk-paper/60"
-        >
-          {mostrarBarra ? "ocultar herramientas" : "+ agregar recuerdos"}
+        <button onClick={() => setMostrarBarra((m) => !m)} className="px-2 py-1 text-[9px]" style={estiloEtiqueta}>
+          {mostrarBarra ? "Ocultar herramientas" : "+ Agregar recuerdos"}
         </button>
-        <span className="shrink-0 border-2 border-punk-paper/20 bg-black/70 px-2 py-1 font-mono text-[9px] text-punk-paper/60 sm:text-[10px]">
-          {tablero.nombre} // {ordenados.length > 0 ? indice + 1 : 0}/{ordenados.length}
+        <span className="shrink-0 px-2 py-1 text-[9px] sm:text-[10px]" style={estiloEtiqueta}>
+          {tablero.nombre} · {ordenados.length > 0 ? indice + 1 : 0}/{ordenados.length}
         </span>
       </div>
 
@@ -98,15 +109,15 @@ export default function VistaPresentacion({ tablero, onPaletaChange }: VistaPres
       )}
 
       {cargando && (
-        <div className="flex flex-1 items-center justify-center font-mono text-punk-cyan">
-          <ScanLine className="mr-2 h-4 w-4 animate-pulse" /> cargando_presentacion...
+        <div className="flex flex-1 items-center justify-center" style={{ color: tema.acentoSecundario }}>
+          <ScanLine className="mr-2 h-4 w-4 animate-pulse" /> Cargando presentación...
         </div>
       )}
 
       {!cargando && ordenados.length === 0 && (
         <div className="flex flex-1 items-center justify-center px-6">
-          <p className="max-w-xs border-4 border-dashed border-punk-paper/20 bg-black/40 px-6 py-8 text-center font-mono text-xs text-punk-paper/40">
-            agrega recuerdos para empezar la presentacion_
+          <p className="max-w-xs px-6 py-8 text-center text-xs" style={{ color: tema.textoSuave, border: `2px dashed ${tema.textoSuave}33`, borderRadius: tema.bordeRadio }}>
+            Agrega recuerdos para empezar la presentación.
           </p>
         </div>
       )}
@@ -126,6 +137,7 @@ export default function VistaPresentacion({ tablero, onPaletaChange }: VistaPres
                 colorGlow={actual.dominant_color || estadoAnimo.primario}
                 tamano="grande"
                 onCambiarFiltro={cambiarFiltro}
+                onAlternarFavorito={alternarFavorito}
                 onEliminar={setStickerAEliminar}
               />
             </motion.div>
@@ -134,19 +146,22 @@ export default function VistaPresentacion({ tablero, onPaletaChange }: VistaPres
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIndice((i) => (i - 1 + ordenados.length) % ordenados.length)}
-              className="flex h-9 w-9 items-center justify-center border-2 border-black bg-punk-paper text-black shadow-[2px_2px_0px_#000]"
+              className="flex h-9 w-9 items-center justify-center"
+              style={estiloBotonRedondo}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => setReproduciendo((r) => !r)}
-              className="flex h-9 w-9 items-center justify-center border-2 border-black bg-punk-pink text-black shadow-[2px_2px_0px_#000]"
+              className="flex h-9 w-9 items-center justify-center"
+              style={{ backgroundColor: tema.acento, color: tema.fondo, borderRadius: "9999px", boxShadow: tema.sombraChica }}
             >
               {reproduciendo ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </button>
             <button
               onClick={() => setIndice((i) => (i + 1) % ordenados.length)}
-              className="flex h-9 w-9 items-center justify-center border-2 border-black bg-punk-paper text-black shadow-[2px_2px_0px_#000]"
+              className="flex h-9 w-9 items-center justify-center"
+              style={estiloBotonRedondo}
             >
               <ChevronRight className="h-4 w-4" />
             </button>

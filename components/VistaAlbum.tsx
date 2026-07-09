@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, ScanLine } from "lucide-react";
 import type { Sticker, Tablero } from "@/lib/types";
 import { useLienzo } from "@/lib/useLienzo";
+import { useTema } from "@/lib/TemaContext";
 import BarraCreacion from "./BarraCreacion";
 import ModalEliminar from "./ModalEliminar";
 import TarjetaSticker from "./TarjetaSticker";
@@ -18,9 +19,10 @@ const POR_PAGINA = 2;
 
 /** Modo "Album": los recuerdos se agrupan en paginas que se voltean, como un libro. */
 export default function VistaAlbum({ tablero, onPaletaChange }: VistaAlbumProps) {
+  const tema = useTema();
   const {
     stickers, cargando, subiendo, subirArchivoComoSticker, crearCartelitoTexto,
-    generarConIA, eliminarSticker, cambiarFiltro, todosLosColores, estadoAnimo,
+    generarConIA, eliminarSticker, cambiarFiltro, alternarFavorito, todosLosColores, estadoAnimo,
   } = useLienzo(tablero);
 
   const [stickerAEliminar, setStickerAEliminar] = useState<Sticker | null>(null);
@@ -46,19 +48,28 @@ export default function VistaAlbum({ tablero, onPaletaChange }: VistaAlbumProps)
     setPagina(nueva);
   }
 
+  const estiloBotonNav = {
+    backgroundColor: tema.superficie,
+    color: tema.texto,
+    borderRadius: tema.bordeRadio / 2,
+    boxShadow: tema.sombraChica,
+  };
+
   if (!tablero) {
     return (
-      <div className="flex h-full flex-1 items-center justify-center bg-punk-black">
-        <p className="mx-4 border-4 border-dashed border-punk-pink/40 px-6 py-6 text-center font-mono text-sm text-punk-paper/50">
-          &gt; selecciona o crea un tablero_
+      <div className="flex h-full flex-1 items-center justify-center" style={{ backgroundColor: tema.fondo }}>
+        <p className="mx-4 px-6 py-6 text-center text-sm" style={{ color: tema.textoSuave, border: `2px dashed ${tema.textoSuave}44`, borderRadius: tema.bordeRadio }}>
+          Selecciona o crea un tablero.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="relative flex h-full flex-1 flex-col overflow-hidden bg-punk-black">
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:32px_32px]" />
+    <div className="relative flex h-full flex-1 flex-col overflow-hidden" style={{ backgroundColor: tema.fondo }}>
+      {tema.efectosRetro && (
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:32px_32px]" />
+      )}
 
       <div className="relative z-20 flex items-start justify-between gap-2 p-3 sm:p-4">
         <BarraCreacion
@@ -69,21 +80,24 @@ export default function VistaAlbum({ tablero, onPaletaChange }: VistaAlbumProps)
           onGenerarIA={generarConIA}
           onCrearTexto={crearCartelitoTexto}
         />
-        <span className="shrink-0 border-2 border-punk-paper/20 bg-black/70 px-2 py-1 font-mono text-[9px] text-punk-paper/60 sm:text-[10px]">
+        <span
+          className="shrink-0 px-2 py-1 text-[9px] sm:text-[10px]"
+          style={{ backgroundColor: `${tema.superficie}dd`, color: tema.textoSuave, borderRadius: tema.bordeRadio / 3 }}
+        >
           {tablero.nombre}
         </span>
       </div>
 
       {cargando && (
-        <div className="flex flex-1 items-center justify-center font-mono text-punk-cyan">
-          <ScanLine className="mr-2 h-4 w-4 animate-pulse" /> cargando_album...
+        <div className="flex flex-1 items-center justify-center" style={{ color: tema.acentoSecundario }}>
+          <ScanLine className="mr-2 h-4 w-4 animate-pulse" /> Cargando álbum...
         </div>
       )}
 
       {!cargando && ordenados.length === 0 && (
         <div className="flex flex-1 items-center justify-center px-6">
-          <p className="max-w-xs border-4 border-dashed border-punk-paper/20 bg-black/40 px-6 py-8 text-center font-mono text-xs text-punk-paper/40">
-            este album aun no tiene paginas_
+          <p className="max-w-xs px-6 py-8 text-center text-xs" style={{ color: tema.textoSuave, border: `2px dashed ${tema.textoSuave}33`, borderRadius: tema.bordeRadio }}>
+            Este álbum aún no tiene páginas.
           </p>
         </div>
       )}
@@ -93,12 +107,16 @@ export default function VistaAlbum({ tablero, onPaletaChange }: VistaAlbumProps)
           <button
             onClick={() => irPagina(paginaActual - 1)}
             disabled={paginaActual === 0}
-            className="flex h-10 w-10 shrink-0 items-center justify-center border-4 border-black bg-punk-paper text-black shadow-[3px_3px_0px_#000] disabled:opacity-20"
+            className="flex h-10 w-10 shrink-0 items-center justify-center disabled:opacity-20"
+            style={estiloBotonNav}
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
 
-          <div className="relative flex h-[70%] w-full max-w-xl items-center justify-center overflow-hidden border-4 border-black bg-neutral-900 shadow-[8px_8px_0px_#000]">
+          <div
+            className="relative flex h-[70%] w-full max-w-xl items-center justify-center overflow-hidden"
+            style={{ backgroundColor: tema.superficie, borderRadius: tema.bordeRadio, boxShadow: tema.sombra }}
+          >
             <AnimatePresence mode="wait" custom={direccion}>
               <motion.div
                 key={paginaActual}
@@ -117,6 +135,7 @@ export default function VistaAlbum({ tablero, onPaletaChange }: VistaAlbumProps)
                     colorGlow={sticker.dominant_color || estadoAnimo.primario}
                     tamano="grande"
                     onCambiarFiltro={cambiarFiltro}
+                    onAlternarFavorito={alternarFavorito}
                     onEliminar={setStickerAEliminar}
                   />
                 ))}
@@ -127,7 +146,8 @@ export default function VistaAlbum({ tablero, onPaletaChange }: VistaAlbumProps)
           <button
             onClick={() => irPagina(paginaActual + 1)}
             disabled={paginaActual >= totalPaginas - 1}
-            className="flex h-10 w-10 shrink-0 items-center justify-center border-4 border-black bg-punk-paper text-black shadow-[3px_3px_0px_#000] disabled:opacity-20"
+            className="flex h-10 w-10 shrink-0 items-center justify-center disabled:opacity-20"
+            style={estiloBotonNav}
           >
             <ChevronRight className="h-5 w-5" />
           </button>
@@ -135,8 +155,8 @@ export default function VistaAlbum({ tablero, onPaletaChange }: VistaAlbumProps)
       )}
 
       {!cargando && ordenados.length > 0 && (
-        <p className="relative z-10 pb-3 text-center font-mono text-[10px] text-punk-paper/50">
-          pagina {paginaActual + 1} / {totalPaginas}
+        <p className="relative z-10 pb-3 text-center text-[10px]" style={{ color: tema.textoSuave }}>
+          Página {paginaActual + 1} / {totalPaginas}
         </p>
       )}
 

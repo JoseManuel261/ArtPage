@@ -84,14 +84,14 @@ body {
   mix-blend-mode: overlay;
 }
 
-/* Scrollbars con identidad neon */
+/* Scrollbar neutral, funciona bien con cualquier tema */
 ::-webkit-scrollbar {
   width: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: #0a0a0a;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #ff007f;
-  border: 2px solid #0a0a0a;
+  background: rgba(120, 113, 108, 0.4);
+  border-radius: 8px;
 }

@@ -7,6 +7,7 @@ import type { Sticker, Tablero } from "@/lib/types";
 import { useLienzo } from "@/lib/useLienzo";
 import { exportarLienzoComoPng } from "@/lib/exportarLienzo";
 import { sonidoActivo } from "@/lib/sonido";
+import { useTema } from "@/lib/TemaContext";
 import BarraCreacion from "./BarraCreacion";
 import ModalEliminar from "./ModalEliminar";
 import TarjetaSticker from "./TarjetaSticker";
@@ -36,21 +37,11 @@ const posicionesEco = [
 
 /** Modo "Collage libre": arrastrar, rotar, redimensionar cualquier sticker por el lienzo. */
 export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvasProps) {
+  const tema = useTema();
   const {
-    stickers,
-    cargando,
-    subiendo,
-    subirArchivoComoSticker,
-    crearCartelitoTexto,
-    generarConIA,
-    eliminarSticker,
-    traerAlFrente,
-    actualizarPosicion,
-    cambiarFiltro,
-    actualizarEscala,
-    todosLosColores,
-    estadoAnimo,
-    coloresAurora,
+    stickers, cargando, subiendo, subirArchivoComoSticker, crearCartelitoTexto,
+    generarConIA, eliminarSticker, traerAlFrente, actualizarPosicion, cambiarFiltro,
+    alternarFavorito, actualizarEscala, todosLosColores, estadoAnimo, coloresAurora,
   } = useLienzo(tablero);
 
   const [arrastrandoArchivo, setArrastrandoArchivo] = useState(false);
@@ -58,17 +49,19 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
   const [exportando, setExportando] = useState(false);
   const [sonidoOn, setSonidoOn] = useState(() => sonidoActivo.get());
 
-  const ecos = useMemo(() => stickers.filter((s) => s.tipo === "imagen").slice(-5), [stickers]);
+  // Los efectos decorativos (ecos difuminados de fotos, manchas de
+  // aurora) son parte de la identidad del tema Neon/Glitch. En los
+  // demas temas (mas limpios) se omiten para no ensuciar la interfaz.
+  const mostrarDecoracion = tema.efectosRetro;
+
+  const ecos = useMemo(
+    () => (mostrarDecoracion ? stickers.filter((s) => s.tipo === "imagen").slice(-5) : []),
+    [stickers, mostrarDecoracion]
+  );
 
   useMemo(() => {
     onPaletaChange?.(todosLosColores, estadoAnimo.etiqueta);
   }, [todosLosColores, estadoAnimo.etiqueta]);
-
-  const estiloAmbiente = {
-    "--mood-primary": estadoAnimo.primario,
-    "--mood-secondary": estadoAnimo.secundario,
-    "--mood-glow": estadoAnimo.glow,
-  } as React.CSSProperties;
 
   async function handleExportar() {
     if (!tablero || stickers.length === 0) return;
@@ -94,11 +87,16 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
     actualizarEscala(sticker, nueva);
   }
 
+  const t = tema.etiquetasTerminal;
+
   if (!tablero) {
     return (
-      <div className="flex h-full flex-1 items-center justify-center bg-punk-black">
-        <p className="mx-4 border-4 border-dashed border-punk-pink/40 px-6 py-6 text-center font-mono text-sm text-punk-paper/50 sm:px-8">
-          &gt; selecciona o crea un tablero para empezar a intervenir_
+      <div className="flex h-full flex-1 items-center justify-center" style={{ backgroundColor: tema.fondo }}>
+        <p
+          className="mx-4 px-6 py-6 text-center text-sm sm:px-8"
+          style={{ color: tema.textoSuave, border: `2px dashed ${tema.textoSuave}44`, borderRadius: tema.bordeRadio }}
+        >
+          Selecciona o crea un tablero para empezar.
         </p>
       </div>
     );
@@ -116,39 +114,43 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
         setArrastrandoArchivo(false);
         if (e.dataTransfer.files) Array.from(e.dataTransfer.files).forEach(subirArchivoComoSticker);
       }}
-      style={estiloAmbiente}
-      className="art-canvas relative h-full flex-1 overflow-hidden bg-punk-black"
+      className="art-canvas relative h-full flex-1 overflow-hidden"
+      style={{ backgroundColor: tema.fondo }}
     >
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        {ecos.map((s, i) => {
-          const pos = posicionesEco[i % posicionesEco.length];
-          return (
-            <img
-              key={`eco-${s.id}`}
-              src={s.image_url}
-              alt=""
-              aria-hidden="true"
-              className="eco-flotante absolute h-64 w-64 rounded-full object-cover opacity-[0.28] blur-3xl mix-blend-screen"
-              style={{ top: pos.top, left: pos.left, animationDelay: `${i * 2.4}s`, animationDuration: `${18 + i * 3}s` }}
-            />
-          );
-        })}
-      </div>
+      {mostrarDecoracion && (
+        <>
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            {ecos.map((s, i) => {
+              const pos = posicionesEco[i % posicionesEco.length];
+              return (
+                <img
+                  key={`eco-${s.id}`}
+                  src={s.image_url}
+                  alt=""
+                  aria-hidden="true"
+                  className="eco-flotante absolute h-64 w-64 rounded-full object-cover opacity-[0.28] blur-3xl mix-blend-screen"
+                  style={{ top: pos.top, left: pos.left, animationDelay: `${i * 2.4}s`, animationDuration: `${18 + i * 3}s` }}
+                />
+              );
+            })}
+          </div>
 
-      <div className="pointer-events-none absolute inset-0 opacity-[0.55]">
-        {coloresAurora.map((color, i) => {
-          const pos = posicionesAurora[i % posicionesAurora.length];
-          return (
-            <div
-              key={`aurora-${i}-${color}`}
-              className="aurora-blob absolute rounded-full blur-3xl"
-              style={{ top: pos.top, left: pos.left, width: 380, height: 380, background: color, animationDelay: `${i * 1.8}s` }}
-            />
-          );
-        })}
-      </div>
+          <div className="pointer-events-none absolute inset-0 opacity-[0.55]">
+            {coloresAurora.map((color, i) => {
+              const pos = posicionesAurora[i % posicionesAurora.length];
+              return (
+                <div
+                  key={`aurora-${i}-${color}`}
+                  className="aurora-blob absolute rounded-full blur-3xl"
+                  style={{ top: pos.top, left: pos.left, width: 380, height: 380, background: color, animationDelay: `${i * 1.8}s` }}
+                />
+              );
+            })}
+          </div>
 
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:32px_32px]" />
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:32px_32px]" />
+        </>
+      )}
 
       <div className="pointer-events-none absolute left-2 top-2 z-20 flex max-w-[85%] flex-col gap-2 sm:left-4 sm:top-4 sm:max-w-[65%]">
         <BarraCreacion
@@ -159,13 +161,19 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
           onGenerarIA={generarConIA}
           onCrearTexto={crearCartelitoTexto}
         />
-        <span className="pointer-events-auto w-fit max-w-full truncate border-2 border-punk-paper/20 bg-black/70 px-2 py-1 font-mono text-[9px] text-punk-paper/60 sm:text-[10px]">
-          arrastra imagenes aqui // {tablero.nombre}
+        <span
+          className="pointer-events-auto w-fit max-w-full truncate px-2 py-1 text-[9px] sm:text-[10px]"
+          style={{ backgroundColor: `${tema.superficie}dd`, color: tema.textoSuave, borderRadius: tema.bordeRadio / 3 }}
+        >
+          {t ? `arrastra imagenes aqui // ${tablero.nombre}` : tablero.nombre}
         </span>
       </div>
 
       <div className="pointer-events-auto absolute right-2 top-2 z-20 flex flex-col items-end gap-1.5 sm:right-4 sm:top-4">
-        <div className="flex items-center gap-1.5 border-2 border-black bg-black/70 px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-punk-paper/70 sm:text-[10px]">
+        <div
+          className="flex items-center gap-1.5 px-2 py-1 text-[9px] uppercase tracking-wider sm:text-[10px]"
+          style={{ backgroundColor: `${tema.superficie}dd`, color: tema.textoSuave, borderRadius: tema.bordeRadio / 3 }}
+        >
           <Palette className="h-3 w-3 shrink-0" style={{ color: estadoAnimo.primario }} />
           <span className="hidden sm:inline">paleta:</span>
           <span style={{ color: estadoAnimo.primario }}>{estadoAnimo.etiqueta}</span>
@@ -174,17 +182,19 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
           <button
             onClick={alternarSonido}
             aria-label={sonidoOn ? "Silenciar sonido" : "Activar sonido"}
-            className="flex items-center justify-center border-2 border-black bg-black/70 p-1.5 text-punk-paper/70 hover:text-punk-paper"
+            className="flex items-center justify-center p-1.5"
+            style={{ backgroundColor: `${tema.superficie}dd`, color: tema.textoSuave, borderRadius: tema.bordeRadio / 3 }}
           >
             {sonidoOn ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
           </button>
           <button
             onClick={handleExportar}
             disabled={exportando || stickers.length === 0}
-            className="flex items-center gap-1 border-2 border-black bg-black/70 px-2 py-1.5 font-mono text-[9px] text-punk-paper/70 hover:text-punk-paper disabled:opacity-30 sm:text-[10px]"
+            className="flex items-center gap-1 px-2 py-1.5 text-[9px] disabled:opacity-30 sm:text-[10px]"
+            style={{ backgroundColor: `${tema.superficie}dd`, color: tema.textoSuave, borderRadius: tema.bordeRadio / 3 }}
           >
             {exportando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-            <span className="hidden sm:inline">guardar.png</span>
+            <span className="hidden sm:inline">Guardar</span>
           </button>
         </div>
       </div>
@@ -194,18 +204,21 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
       )}
 
       {cargando && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 font-mono text-punk-cyan">
+        <div className="absolute inset-0 z-30 flex items-center justify-center" style={{ backgroundColor: `${tema.fondo}dd`, color: tema.acentoSecundario }}>
           <ScanLine className="mr-2 h-4 w-4 animate-pulse" />
-          cargando_lienzo...
+          Cargando...
         </div>
       )}
 
       {!cargando && stickers.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
-          <p className="max-w-xs border-4 border-dashed border-punk-paper/20 bg-black/40 px-6 py-8 text-center font-mono text-xs text-punk-paper/40">
-            lienzo vacio_
+          <p
+            className="max-w-xs px-6 py-8 text-center text-xs"
+            style={{ color: tema.textoSuave, border: `2px dashed ${tema.textoSuave}33`, borderRadius: tema.bordeRadio, backgroundColor: `${tema.superficie}66` }}
+          >
+            Lienzo vacío.
             <br />
-            arrastra una imagen, genera algo con IA, o añade un cartelito
+            Arrastra una imagen, genera algo con IA, o añade un cartelito.
           </p>
         </div>
       )}
@@ -232,6 +245,7 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
               colorGlow={sticker.dominant_color || estadoAnimo.primario}
               onCambiarFiltro={cambiarFiltro}
               onEliminar={setStickerAEliminar}
+              onAlternarFavorito={alternarFavorito}
             />
           </motion.div>
         ))}
@@ -239,29 +253,31 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
 
       <ModalEliminar sticker={stickerAEliminar} onConfirmar={eliminarSticker} onCancelar={() => setStickerAEliminar(null)} />
 
-      <style jsx>{`
-        .eco-flotante {
-          animation-name: flotar-eco;
-          animation-timing-function: ease-in-out;
-          animation-iteration-count: infinite;
-          animation-direction: alternate;
-        }
-        .aurora-blob {
-          animation-name: flotar-aurora;
-          animation-duration: 14s;
-          animation-timing-function: ease-in-out;
-          animation-iteration-count: infinite;
-          animation-direction: alternate;
-        }
-        @keyframes flotar-eco {
-          0% { transform: translate(0, 0) scale(1); }
-          100% { transform: translate(40px, -30px) scale(1.15); }
-        }
-        @keyframes flotar-aurora {
-          0% { transform: translate(0, 0) scale(1); }
-          100% { transform: translate(-30px, 25px) scale(1.2); }
-        }
-      `}</style>
+      {mostrarDecoracion && (
+        <style jsx>{`
+          .eco-flotante {
+            animation-name: flotar-eco;
+            animation-timing-function: ease-in-out;
+            animation-iteration-count: infinite;
+            animation-direction: alternate;
+          }
+          .aurora-blob {
+            animation-name: flotar-aurora;
+            animation-duration: 14s;
+            animation-timing-function: ease-in-out;
+            animation-iteration-count: infinite;
+            animation-direction: alternate;
+          }
+          @keyframes flotar-eco {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(40px, -30px) scale(1.15); }
+          }
+          @keyframes flotar-aurora {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(-30px, 25px) scale(1.2); }
+          }
+        `}</style>
+      )}
     </div>
   );
 }
