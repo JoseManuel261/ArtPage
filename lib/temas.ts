@@ -9,7 +9,10 @@ export interface DefinicionTema {
   superficie: string;
   acento: string;
   acentoSecundario: string;
+  /** Fuente para TODO el texto funcional: botones, inputs, descripciones. Siempre legible. */
   fuenteUI: string;
+  /** Fuente decorativa, solo para detalles puntuales (titulo del tablero, dedicatoria). Nunca para texto funcional/largo. */
+  fuenteAcento: string;
   /** Grosor del borde de tarjetas/botones, en px. Grueso = hacker/scrapbook, fino = minimal. */
   bordeGrosor: number;
   /** Radio de esquina, en px. 0 = filoso (hacker), >0 = suave (minimal/pastel). */
@@ -35,6 +38,7 @@ export const TEMAS: Record<TemaVisual, DefinicionTema> = {
     acento: "#111827",
     acentoSecundario: "#6366f1",
     fuenteUI: "'Inter', -apple-system, system-ui, sans-serif",
+    fuenteAcento: "'Inter', -apple-system, system-ui, sans-serif",
     bordeGrosor: 1,
     bordeRadio: 14,
     sombra: "0 8px 24px -8px rgba(0,0,0,0.18)",
@@ -53,6 +57,7 @@ export const TEMAS: Record<TemaVisual, DefinicionTema> = {
     acento: "#ff2e88",
     acentoSecundario: "#22e8ff",
     fuenteUI: "'JetBrains Mono', monospace",
+    fuenteAcento: "'Archivo Black', sans-serif",
     bordeGrosor: 4,
     bordeRadio: 0,
     sombra: "6px 6px 0px #000",
@@ -70,7 +75,10 @@ export const TEMAS: Record<TemaVisual, DefinicionTema> = {
     superficie: "#fffaf0",
     acento: "#b5651d",
     acentoSecundario: "#7a8b5e",
-    fuenteUI: "'Caveat', cursive",
+    // Texto funcional siempre en una fuente legible; la cursiva queda
+    // solo para el titulo del tablero y la dedicatoria (fuenteAcento).
+    fuenteUI: "'Poppins', -apple-system, system-ui, sans-serif",
+    fuenteAcento: "'Caveat', cursive",
     bordeGrosor: 3,
     bordeRadio: 2,
     sombra: "5px 5px 0px rgba(58,46,34,0.35)",
@@ -88,7 +96,8 @@ export const TEMAS: Record<TemaVisual, DefinicionTema> = {
     superficie: "#ffffff",
     acento: "#f4a6c1",
     acentoSecundario: "#a6d8f4",
-    fuenteUI: "'Caveat', cursive",
+    fuenteUI: "'Quicksand', -apple-system, system-ui, sans-serif",
+    fuenteAcento: "'Caveat', cursive",
     bordeGrosor: 2,
     bordeRadio: 18,
     sombra: "0 10px 26px -10px rgba(244,166,193,0.5)",

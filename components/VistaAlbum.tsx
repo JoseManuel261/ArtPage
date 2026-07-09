@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, ScanLine } from "lucide-react";
+import { ChevronLeft, ChevronRight, ScanLine, Heart } from "lucide-react";
 import type { Sticker, Tablero } from "@/lib/types";
 import { useLienzo } from "@/lib/useLienzo";
 import { useTema } from "@/lib/TemaContext";
@@ -26,16 +26,20 @@ export default function VistaAlbum({ tablero, onPaletaChange }: VistaAlbumProps)
   } = useLienzo(tablero);
 
   const [stickerAEliminar, setStickerAEliminar] = useState<Sticker | null>(null);
+  const [soloFavoritos, setSoloFavoritos] = useState(false);
   const [pagina, setPagina] = useState(0);
   const [direccion, setDireccion] = useState(1);
 
-  useMemo(() => {
+  useEffect(() => {
     onPaletaChange?.(todosLosColores, estadoAnimo.etiqueta);
-  }, [todosLosColores, estadoAnimo.etiqueta]);
+  }, [todosLosColores, estadoAnimo.etiqueta, onPaletaChange]);
 
   const ordenados = useMemo(
-    () => [...stickers].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
-    [stickers]
+    () =>
+      [...stickers]
+        .filter((s) => !soloFavoritos || s.favorito)
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+    [stickers, soloFavoritos]
   );
 
   const totalPaginas = Math.max(1, Math.ceil(ordenados.length / POR_PAGINA));
@@ -80,12 +84,26 @@ export default function VistaAlbum({ tablero, onPaletaChange }: VistaAlbumProps)
           onGenerarIA={generarConIA}
           onCrearTexto={crearCartelitoTexto}
         />
-        <span
-          className="shrink-0 px-2 py-1 text-[9px] sm:text-[10px]"
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            onClick={() => setSoloFavoritos((v) => !v)}
+            aria-label={soloFavoritos ? "Ver todos" : "Ver solo favoritos"}
+            className="flex items-center justify-center p-1.5"
+            style={{
+              backgroundColor: soloFavoritos ? tema.acento : `${tema.superficie}dd`,
+              color: soloFavoritos ? tema.fondo : tema.textoSuave,
+              borderRadius: tema.bordeRadio / 3,
+            }}
+          >
+            <Heart className="h-3.5 w-3.5" fill={soloFavoritos ? "currentColor" : "none"} />
+          </button>
+          <span
+          className="px-2 py-1 text-[9px] sm:text-[10px]"
           style={{ backgroundColor: `${tema.superficie}dd`, color: tema.textoSuave, borderRadius: tema.bordeRadio / 3 }}
         >
           {tablero.nombre}
         </span>
+        </div>
       </div>
 
       {cargando && (

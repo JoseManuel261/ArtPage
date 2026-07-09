@@ -2,31 +2,29 @@
 
 /**
  * Generacion de imagenes con IA usando Pollinations.ai — gratis, sin
- * registro, sin llave de API. Basta con construir una URL con el
- * texto describiendo lo que quieres, y devuelve la imagen directa.
+ * registro, sin llave de API.
  *
- * Docs: https://gen.pollinations.ai/docs
- * Endpoint: https://gen.pollinations.ai/image/{prompt}
- *
- * Descargamos el resultado como Blob y lo re-subimos a nuestro propio
- * Storage de Supabase (igual que una foto normal), para que quede
- * guardado de forma permanente y no dependa de la disponibilidad del
- * servicio externo a largo plazo.
+ * La peticion real al servicio externo la hace nuestra propia ruta de
+ * servidor (`/api/generar-imagen`), no el navegador: asi evitamos
+ * cualquier bloqueo de CORS, que es la causa mas comun de que la
+ * generacion "falle" sin explicacion clara en el navegador.
  */
-export async function generarImagenIA(
-  prompt: string,
-  opciones?: { ancho?: number; alto?: number }
-): Promise<File> {
-  const ancho = opciones?.ancho ?? 512;
-  const alto = opciones?.alto ?? 512;
+export async function generarImagenIA(prompt: string): Promise<File> {
+  const respuesta = await fetch("/api/generar-imagen", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt }),
+  });
 
-  const url = `https://gen.pollinations.ai/image/${encodeURIComponent(
-    prompt
-  )}?width=${ancho}&height=${alto}&nologo=true&safe=true`;
-
-  const respuesta = await fetch(url);
   if (!respuesta.ok) {
-    throw new Error(`Error generando imagen con IA: ${respuesta.status}`);
+    let mensaje = "No se pudo generar la imagen.";
+    try {
+      const data = await respuesta.json();
+      if (data?.error) mensaje = data.error;
+    } catch {
+      // el cuerpo no era JSON (por ejemplo, un error de gateway); usamos el mensaje generico
+    }
+    throw new Error(mensaje);
   }
 
   const blob = await respuesta.blob();

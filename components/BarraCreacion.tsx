@@ -60,8 +60,9 @@ export default function BarraCreacion({
       await onGenerarIA(prompt);
       setPromptIA("");
       setMostrarIA(false);
-    } catch {
-      setErrorIA("No se pudo generar la imagen. Intenta con otra descripción.");
+    } catch (err) {
+      const mensaje = err instanceof Error ? err.message : "No se pudo generar la imagen.";
+      setErrorIA(mensaje);
     } finally {
       setGenerandoIA(false);
     }

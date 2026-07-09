@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ScanLine, Palette, Download, Volume2, VolumeX, Loader2 } from "lucide-react";
+import { ScanLine, Palette, Download, Volume2, VolumeX, Loader2, Heart } from "lucide-react";
 import type { Sticker, Tablero } from "@/lib/types";
 import { useLienzo } from "@/lib/useLienzo";
 import { exportarLienzoComoPng } from "@/lib/exportarLienzo";
@@ -48,6 +48,7 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
   const [stickerAEliminar, setStickerAEliminar] = useState<Sticker | null>(null);
   const [exportando, setExportando] = useState(false);
   const [sonidoOn, setSonidoOn] = useState(() => sonidoActivo.get());
+  const [soloFavoritos, setSoloFavoritos] = useState(false);
 
   // Los efectos decorativos (ecos difuminados de fotos, manchas de
   // aurora) son parte de la identidad del tema Neon/Glitch. En los
@@ -59,9 +60,9 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
     [stickers, mostrarDecoracion]
   );
 
-  useMemo(() => {
+  useEffect(() => {
     onPaletaChange?.(todosLosColores, estadoAnimo.etiqueta);
-  }, [todosLosColores, estadoAnimo.etiqueta]);
+  }, [todosLosColores, estadoAnimo.etiqueta, onPaletaChange]);
 
   async function handleExportar() {
     if (!tablero || stickers.length === 0) return;
@@ -180,6 +181,18 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
         </div>
         <div className="flex gap-1.5">
           <button
+            onClick={() => setSoloFavoritos((v) => !v)}
+            aria-label={soloFavoritos ? "Ver todos" : "Ver solo favoritos"}
+            className="flex items-center justify-center p-1.5"
+            style={{
+              backgroundColor: soloFavoritos ? tema.acento : `${tema.superficie}dd`,
+              color: soloFavoritos ? tema.fondo : tema.textoSuave,
+              borderRadius: tema.bordeRadio / 3,
+            }}
+          >
+            <Heart className="h-3.5 w-3.5" fill={soloFavoritos ? "currentColor" : "none"} />
+          </button>
+          <button
             onClick={alternarSonido}
             aria-label={sonidoOn ? "Silenciar sonido" : "Activar sonido"}
             className="flex items-center justify-center p-1.5"
@@ -224,7 +237,7 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
       )}
 
       <AnimatePresence>
-        {stickers.map((sticker) => (
+        {(soloFavoritos ? stickers.filter((s) => s.favorito) : stickers).map((sticker) => (
           <motion.div
             key={sticker.id}
             drag

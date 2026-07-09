@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Pause, Play, ScanLine } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play, ScanLine, Heart } from "lucide-react";
 import type { Sticker, Tablero } from "@/lib/types";
 import { useLienzo } from "@/lib/useLienzo";
 import { useTema } from "@/lib/TemaContext";
@@ -26,17 +26,21 @@ export default function VistaPresentacion({ tablero, onPaletaChange }: VistaPres
   } = useLienzo(tablero);
 
   const [stickerAEliminar, setStickerAEliminar] = useState<Sticker | null>(null);
+  const [soloFavoritos, setSoloFavoritos] = useState(false);
   const [indice, setIndice] = useState(0);
   const [reproduciendo, setReproduciendo] = useState(true);
   const [mostrarBarra, setMostrarBarra] = useState(false);
 
-  useMemo(() => {
+  useEffect(() => {
     onPaletaChange?.(todosLosColores, estadoAnimo.etiqueta);
-  }, [todosLosColores, estadoAnimo.etiqueta]);
+  }, [todosLosColores, estadoAnimo.etiqueta, onPaletaChange]);
 
   const ordenados = useMemo(
-    () => [...stickers].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
-    [stickers]
+    () =>
+      [...stickers]
+        .filter((s) => !soloFavoritos || s.favorito)
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+    [stickers, soloFavoritos]
   );
 
   useEffect(() => {
@@ -90,9 +94,23 @@ export default function VistaPresentacion({ tablero, onPaletaChange }: VistaPres
         <button onClick={() => setMostrarBarra((m) => !m)} className="px-2 py-1 text-[9px]" style={estiloEtiqueta}>
           {mostrarBarra ? "Ocultar herramientas" : "+ Agregar recuerdos"}
         </button>
-        <span className="shrink-0 px-2 py-1 text-[9px] sm:text-[10px]" style={estiloEtiqueta}>
-          {tablero.nombre} · {ordenados.length > 0 ? indice + 1 : 0}/{ordenados.length}
-        </span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            onClick={() => setSoloFavoritos((v) => !v)}
+            aria-label={soloFavoritos ? "Ver todos" : "Ver solo favoritos"}
+            className="flex items-center justify-center p-1.5"
+            style={{
+              backgroundColor: soloFavoritos ? tema.acento : `${tema.superficie}dd`,
+              color: soloFavoritos ? tema.fondo : tema.textoSuave,
+              borderRadius: tema.bordeRadio / 3,
+            }}
+          >
+            <Heart className="h-3.5 w-3.5" fill={soloFavoritos ? "currentColor" : "none"} />
+          </button>
+          <span className="px-2 py-1 text-[9px] sm:text-[10px]" style={estiloEtiqueta}>
+            {tablero.nombre} · {ordenados.length > 0 ? indice + 1 : 0}/{ordenados.length}
+          </span>
+        </div>
       </div>
 
       {mostrarBarra && (

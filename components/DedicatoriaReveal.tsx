@@ -56,7 +56,10 @@ export default function DedicatoriaReveal({ tableroId, dedicatoria }: Dedicatori
               <X className="h-4 w-4" />
             </button>
             <Heart className="mx-auto mb-3 h-7 w-7" style={{ color: tema.acento }} fill="currentColor" />
-            <p className="whitespace-pre-wrap text-sm leading-relaxed" style={{ color: tema.texto }}>
+            <p
+              className="whitespace-pre-wrap text-base leading-relaxed"
+              style={{ color: tema.texto, fontFamily: tema.fuenteAcento }}
+            >
               {dedicatoria}
             </p>
             <button

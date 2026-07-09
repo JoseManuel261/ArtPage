@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import SVGFilters from "@/components/SVGFilters";
 import SidebarTableros from "@/components/SidebarTableros";
@@ -131,12 +131,17 @@ function ContenidoPagina({
 }: ContenidoPaginaProps) {
   const tema = useTema();
 
-  const vistaProps = {
-    tablero: tableroActivo,
-    onPaletaChange: (colores: string[], etiqueta: string) => {
+  const manejarPaletaChange = useCallback(
+    (colores: string[], etiqueta: string) => {
       setPaletaColores(colores);
       setPaletaEtiqueta(etiqueta);
     },
+    [setPaletaColores, setPaletaEtiqueta]
+  );
+
+  const vistaProps = {
+    tablero: tableroActivo,
+    onPaletaChange: manejarPaletaChange,
   };
 
   return (
@@ -173,7 +178,7 @@ function ContenidoPagina({
       {/* Cabecera flotante, minimalista por defecto */}
       {tableroActivo && (
         <div
-          className="pointer-events-none absolute left-1/2 top-2 z-40 max-w-[70vw] -translate-x-1/2 truncate px-3 py-1 text-[11px] sm:top-3 sm:text-xs"
+          className="pointer-events-none absolute left-1/2 top-2 z-40 max-w-[70vw] -translate-x-1/2 truncate px-3 py-1 text-sm sm:top-3"
           style={{
             backgroundColor: tema.superficie,
             color: tema.textoSuave,
@@ -182,6 +187,8 @@ function ContenidoPagina({
             boxShadow: tema.efectosRetro ? "none" : tema.sombraChica,
             letterSpacing: tema.efectosRetro ? "0.2em" : "normal",
             textTransform: tema.efectosRetro ? "uppercase" : "none",
+            fontFamily: tema.fuenteAcento,
+            fontSize: tema.efectosRetro ? "11px" : undefined,
           }}
         >
           {tableroActivo.nombre}

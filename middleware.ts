@@ -18,7 +18,10 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/acceso") ||
     pathname.startsWith("/api/verificar-acceso") ||
     pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico";
+    pathname === "/favicon.ico" ||
+    pathname === "/icon.png" ||
+    pathname === "/apple-icon.png" ||
+    pathname === "/manifest.webmanifest";
 
   if (rutasLibres) return NextResponse.next();
 
