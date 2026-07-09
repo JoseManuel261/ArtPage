@@ -106,3 +106,10 @@ create policy "imagenes_stickers_delete_publico"
 on storage.objects for delete to public
 using ( bucket_id = 'imagenes_stickers' );
 
+-- ============================================================
+-- ⚠️ RECORDATORIO MANUAL (no se puede hacer por SQL):
+-- Ve a Supabase > Storage > Create a new bucket
+--   Nombre exacto:  imagenes_stickers
+--   Marca la opcion "Public bucket" = ON
+-- (si el bucket ya existe de antes, no hay que volver a crearlo)
+-- ============================================================

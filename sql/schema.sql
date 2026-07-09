@@ -16,8 +16,33 @@ create extension if not exists "pgcrypto";
 create table if not exists public.tableros (
   id uuid primary key default gen_random_uuid(),
   nombre text not null,
+  modo text not null default 'collage' check (modo in ('collage', 'album', 'timeline', 'presentacion', 'constelacion')),
+  tema_visual text not null default 'minimal' check (tema_visual in ('neon', 'scrapbook', 'pastel', 'minimal')),
+  fecha_revelacion timestamptz,
+  dedicatoria text,
   created_at timestamptz not null default now()
 );
+
+-- Si la tabla ya existia de una version anterior, agrega las columnas:
+alter table public.tableros add column if not exists modo text not null default 'collage';
+alter table public.tableros add column if not exists tema_visual text not null default 'minimal';
+alter table public.tableros add column if not exists fecha_revelacion timestamptz;
+alter table public.tableros add column if not exists dedicatoria text;
+
+do $$
+begin
+  if exists (select 1 from pg_constraint where conname = 'tableros_modo_check') then
+    alter table public.tableros drop constraint tableros_modo_check;
+  end if;
+  alter table public.tableros
+    add constraint tableros_modo_check check (modo in ('collage', 'album', 'timeline', 'presentacion', 'constelacion'));
+
+  if exists (select 1 from pg_constraint where conname = 'tableros_tema_check') then
+    alter table public.tableros drop constraint tableros_tema_check;
+  end if;
+  alter table public.tableros
+    add constraint tableros_tema_check check (tema_visual in ('neon', 'scrapbook', 'pastel', 'minimal'));
+end $$;
 
 -- ------------------------------------------------------------
 -- Tabla: stickers
@@ -25,6 +50,7 @@ create table if not exists public.tableros (
 create table if not exists public.stickers (
   id uuid primary key default gen_random_uuid(),
   tablero_id uuid not null references public.tableros (id) on delete cascade,
+  tipo text not null default 'imagen' check (tipo in ('imagen', 'texto')),
   image_url text not null,
   x double precision not null default 0,
   y double precision not null default 0,
@@ -33,11 +59,33 @@ create table if not exists public.stickers (
   filter_type text not null default 'raw' check (filter_type in ('raw', 'hackeado', 'duotone')),
   z_index integer not null default 1,
   dominant_color text,
+  palette text[],
+  texto text,
+  color_fondo text,
+  fuente text,
+  favorito boolean not null default false,
   created_at timestamptz not null default now()
 );
 
--- Si la tabla ya existia de una version anterior, agrega la columna:
+-- Si la tabla ya existia de una version anterior, agrega las columnas:
 alter table public.stickers add column if not exists dominant_color text;
+alter table public.stickers add column if not exists palette text[];
+alter table public.stickers add column if not exists tipo text not null default 'imagen';
+alter table public.stickers add column if not exists texto text;
+alter table public.stickers add column if not exists color_fondo text;
+alter table public.stickers add column if not exists fuente text;
+alter table public.stickers add column if not exists favorito boolean not null default false;
+
+-- Si la restriccion de tipo no existe todavia (proyectos ya creados), agregala:
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'stickers_tipo_check'
+  ) then
+    alter table public.stickers
+      add constraint stickers_tipo_check check (tipo in ('imagen', 'texto'));
+  end if;
+end $$;
 
 create index if not exists idx_stickers_tablero_id on public.stickers (tablero_id);
 
