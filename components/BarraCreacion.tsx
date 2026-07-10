@@ -18,7 +18,7 @@ interface BarraCreacionProps {
 
 /**
  * Barra de herramientas compartida entre los 5 modos de interfaz:
- * cargar imagen, generar con IA (Pollinations, gratis) y añadir un
+ * cargar imagen, generar con IA (Gemini, gratis) y añadir un
  * cartelito de texto. Se adapta al tema visual activo (colores,
  * bordes, tipografia, lenguaje terminal vs simple).
  */
@@ -219,8 +219,8 @@ export default function BarraCreacion({
               <Sparkles className="h-3.5 w-3.5" /> {t ? "generar_imagen_ia.exe" : "Generar con IA"}
             </p>
             <p className="mb-2 text-[10px]" style={{ color: tema.textoSuave }}>
-              Describe lo que quieres ver. Gratis, sin cuenta — corre en un
-              servicio externo (Pollinations.ai).
+              Describe lo que quieres ver. Generado con la API gratuita de
+              Gemini (Google).
             </p>
             <input
               autoFocus
