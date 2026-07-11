@@ -1,26 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Pollinations puede tardar en generar imagenes no cacheadas; le damos
-// margen extra al tiempo maximo de esta funcion en Vercel.
 export const maxDuration = 30;
 
+const MODELO = "@cf/stabilityai/stable-diffusion-xl-base-1.0";
+
 /**
- * Genera una imagen con IA usando Pollinations.ai — gratis de verdad,
- * sin llave de API, sin tarjeta de credito, sin limite de facturacion.
+ * Genera una imagen con IA usando Cloudflare Workers AI — capa
+ * gratuita real y estable (10,000 "neuronas" gratis al dia, sin
+ * tarjeta de credito), respaldada por infraestructura de Cloudflare
+ * en vez de un proyecto pequeño/comunitario.
  *
- * (Nota: se evaluo usar la API de Gemini de Google, pero se descarto:
- * a diferencia de sus modelos de texto, la generacion de imagenes de
- * Gemini NO tiene capa gratuita — cobra desde $0.045 por imagen sin
- * excepcion, incluso con una API key nueva. Pollinations si es
- * genuinamente gratis.)
+ * (Historial: se probo primero con Pollinations.ai, que resulto tener
+ * caidas frecuentes documentadas durante 2026 y no es confiable para
+ * depender de el. Tambien se evaluo la API de Gemini de Google, mejor
+ * descartada porque su generacion de imagenes NUNCA es gratis, ni con
+ * una API key nueva.)
  *
- * La peticion se hace desde el SERVIDOR, no desde el navegador: el
- * navegador aplica CORS a las peticiones "fetch" hacia otros dominios,
- * y Pollinations no garantiza cabeceras CORS permisivas en su endpoint
- * de imagenes. Un servidor no tiene esa restriccion (CORS es una
- * politica exclusiva de navegadores), asi que pedimos la imagen aqui y
- * se la pasamos al cliente ya lista — esto es lo que de verdad
- * resuelve el "no genera nada" que veniamos arrastrando.
+ * Requiere DOS variables de entorno en Vercel:
+ *   CLOUDFLARE_ACCOUNT_ID  — tu ID de cuenta de Cloudflare
+ *   CLOUDFLARE_API_TOKEN   — un token con permiso "Workers AI"
+ *
+ * Como conseguirlas (gratis, ~2 minutos):
+ *   1. Crea una cuenta en https://dash.cloudflare.com/sign-up
+ *   2. En el panel, ve a "AI" > "Workers AI"
+ *   3. Ahi mismo se muestra tu Account ID
+ *   4. Genera un token en "Manage Account" > "API Tokens" con el
+ *      permiso "Workers AI - Read/Edit"
  */
 export async function POST(request: NextRequest) {
   try {
@@ -30,41 +35,80 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Falta la descripcion." }, { status: 400 });
     }
 
-    const url = `https://gen.pollinations.ai/image/${encodeURIComponent(
-      prompt.trim()
-    )}?width=512&height=512&nologo=true&safe=true`;
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+
+    if (!accountId || !apiToken) {
+      return NextResponse.json(
+        {
+          error:
+            "Falta configurar CLOUDFLARE_ACCOUNT_ID y CLOUDFLARE_API_TOKEN en el servidor. Son gratis: crea una cuenta en cloudflare.com y activa Workers AI.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${MODELO}`;
 
     const respuesta = await fetch(url, {
-      headers: { Accept: "image/*" },
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt: prompt.trim() }),
       cache: "no-store",
       signal: AbortSignal.timeout(28000),
     });
 
+    const contentType = respuesta.headers.get("content-type") || "";
+
     if (!respuesta.ok) {
-      console.error("Error de Pollinations:", respuesta.status);
+      // Cloudflare devuelve JSON con detalle del error cuando algo falla.
+      let detalle = "";
+      try {
+        const data = await respuesta.json();
+        detalle = data?.errors?.[0]?.message || JSON.stringify(data);
+      } catch {
+        detalle = await respuesta.text();
+      }
+      console.error("Error de Cloudflare Workers AI:", respuesta.status, detalle);
+
+      if (respuesta.status === 429) {
+        return NextResponse.json(
+          { error: "Se alcanzo el limite gratuito de generaciones por hoy. Vuelve mañana o espera un momento." },
+          { status: 429 }
+        );
+      }
+      if (respuesta.status === 401 || respuesta.status === 403) {
+        return NextResponse.json(
+          { error: "Las credenciales de Cloudflare no son validas. Revisa CLOUDFLARE_ACCOUNT_ID y CLOUDFLARE_API_TOKEN en Vercel." },
+          { status: 500 }
+        );
+      }
       return NextResponse.json(
-        { error: `El servicio de IA respondio con error ${respuesta.status}. Intenta de nuevo.` },
+        { error: `El servicio de IA respondio con error ${respuesta.status}.` },
         { status: 502 }
       );
     }
 
-    const contentType = respuesta.headers.get("content-type") || "image/jpeg";
-    const bytes = await respuesta.arrayBuffer();
-
-    // Confirmamos que de verdad llego una imagen (a veces un error
-    // devuelve una pagina HTML con status 200, lo cual rompe todo
-    // silenciosamente si no lo validamos).
-    if (!contentType.startsWith("image/") || bytes.byteLength < 500) {
+    // Si Cloudflare responde JSON en vez de imagen, algo salio mal
+    // aunque el status haya sido 200 (poco comun, pero pasa).
+    if (contentType.includes("application/json")) {
+      const data = await respuesta.json();
+      console.error("Cloudflare respondio JSON en vez de imagen:", data);
       return NextResponse.json(
         { error: "La IA no devolvio una imagen valida. Intenta con otra descripcion." },
         { status: 502 }
       );
     }
 
+    const bytes = await respuesta.arrayBuffer();
+
     return new NextResponse(bytes, {
       status: 200,
       headers: {
-        "Content-Type": contentType,
+        "Content-Type": contentType || "image/png",
         "Cache-Control": "no-store",
       },
     });

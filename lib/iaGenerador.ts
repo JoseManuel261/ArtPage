@@ -1,13 +1,14 @@
 "use client";
 
 /**
- * Generacion de imagenes con IA usando Pollinations.ai — gratis de
- * verdad, sin llave de API, sin tarjeta de credito.
+ * Generacion de imagenes con IA usando Cloudflare Workers AI — capa
+ * gratuita real y estable (10,000 neuronas gratis al dia, respaldada
+ * por infraestructura de Cloudflare).
  *
  * La peticion real la hace nuestra propia ruta de servidor
- * (`/api/generar-imagen`), no el navegador: asi evitamos cualquier
- * bloqueo de CORS, que es la causa mas comun de que la generacion
- * "falle" sin explicacion clara en el navegador.
+ * (`/api/generar-imagen`), no el navegador: asi las credenciales
+ * nunca se exponen en el codigo del cliente, y evitamos cualquier
+ * bloqueo de CORS.
  */
 export async function generarImagenIA(prompt: string): Promise<File> {
   const respuesta = await fetch("/api/generar-imagen", {
