@@ -1,14 +1,13 @@
 "use client";
 
 /**
- * Generacion de imagenes con IA usando la API de Gemini (Google) —
- * capa gratuita real, sin tarjeta de credito (solo requiere una API
- * key gratuita, ver /api/generar-imagen para instrucciones).
+ * Generacion de imagenes con IA usando Pollinations.ai — gratis de
+ * verdad, sin llave de API, sin tarjeta de credito.
  *
  * La peticion real la hace nuestra propia ruta de servidor
- * (`/api/generar-imagen`), no el navegador: asi la API key nunca se
- * expone en el codigo del cliente, y evitamos cualquier bloqueo de
- * CORS.
+ * (`/api/generar-imagen`), no el navegador: asi evitamos cualquier
+ * bloqueo de CORS, que es la causa mas comun de que la generacion
+ * "falle" sin explicacion clara en el navegador.
  */
 export async function generarImagenIA(prompt: string): Promise<File> {
   const respuesta = await fetch("/api/generar-imagen", {

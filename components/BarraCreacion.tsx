@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Upload, Loader2, Sparkles, Type } from "lucide-react";
 import { FUENTES_CARTELITO } from "@/lib/types";
 import { useTema } from "@/lib/TemaContext";
@@ -18,9 +18,14 @@ interface BarraCreacionProps {
 
 /**
  * Barra de herramientas compartida entre los 5 modos de interfaz:
- * cargar imagen, generar con IA (Gemini, gratis) y añadir un
+ * cargar imagen, generar con IA (Pollinations, gratis) y añadir un
  * cartelito de texto. Se adapta al tema visual activo (colores,
  * bordes, tipografia, lenguaje terminal vs simple).
+ *
+ * Ambos modales (texto e IA) se pueden cerrar de 3 formas: clic
+ * afuera, tecla Escape, o el boton Cancelar — y Cancelar NUNCA se
+ * desactiva, ni siquiera mientras se esta generando, para que el
+ * usuario nunca quede atrapado sin poder salir.
  */
 export default function BarraCreacion({
   subiendo,
@@ -43,6 +48,36 @@ export default function BarraCreacion({
   const [promptIA, setPromptIA] = useState("");
   const [generandoIA, setGenerandoIA] = useState(false);
   const [errorIA, setErrorIA] = useState<string | null>(null);
+
+  // Cerrar con la tecla Escape, cualquiera de los dos modales que este abierto.
+  useEffect(() => {
+    if (!mostrarTexto && !mostrarIA) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        cerrarTexto();
+        cerrarIA();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mostrarTexto, mostrarIA]);
+
+  function cerrarTexto() {
+    setMostrarTexto(false);
+    setTextoNuevo("");
+  }
+
+  function cerrarIA() {
+    // "Soft cancel": cerramos la ventana y liberamos al usuario de
+    // inmediato. Si una generacion ya estaba en curso, puede terminar
+    // en segundo plano (el sticker apareceria solo cuando este listo),
+    // pero el usuario nunca queda atrapado esperando.
+    setMostrarIA(false);
+    setPromptIA("");
+    setErrorIA(null);
+    setGenerandoIA(false);
+  }
 
   async function confirmarTexto() {
     if (!textoNuevo.trim()) return;
@@ -135,8 +170,11 @@ export default function BarraCreacion({
       </div>
 
       {mostrarTexto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-sm p-4" style={estiloModal}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={cerrarTexto}
+        >
+          <div className="w-full max-w-sm p-4" style={estiloModal} onClick={(e) => e.stopPropagation()}>
             <p className="mb-2 text-xs" style={{ color: tema.acento }}>
               {t ? "nuevo_cartelito.txt" : "Nuevo cartelito"}
             </p>
@@ -198,10 +236,7 @@ export default function BarraCreacion({
                 Añadir al lienzo
               </button>
               <button
-                onClick={() => {
-                  setMostrarTexto(false);
-                  setTextoNuevo("");
-                }}
+                onClick={cerrarTexto}
                 className="flex-1 px-3 py-1.5 text-xs"
                 style={{ border: `1px solid ${tema.textoSuave}44`, color: tema.textoSuave, borderRadius: tema.bordeRadio / 2 }}
               >
@@ -213,14 +248,17 @@ export default function BarraCreacion({
       )}
 
       {mostrarIA && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-sm p-4" style={estiloModal}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={cerrarIA}
+        >
+          <div className="w-full max-w-sm p-4" style={estiloModal} onClick={(e) => e.stopPropagation()}>
             <p className="mb-1 flex items-center gap-1.5 text-xs" style={{ color: tema.acentoSecundario }}>
               <Sparkles className="h-3.5 w-3.5" /> {t ? "generar_imagen_ia.exe" : "Generar con IA"}
             </p>
             <p className="mb-2 text-[10px]" style={{ color: tema.textoSuave }}>
-              Describe lo que quieres ver. Generado con la API gratuita de
-              Gemini (Google).
+              Describe lo que quieres ver. Gratis, sin cuenta ni límite
+              de facturación.
             </p>
             <input
               autoFocus
@@ -236,6 +274,12 @@ export default function BarraCreacion({
             {errorIA && (
               <p className="mb-3 text-[10px]" style={{ color: tema.acento }}>
                 {errorIA}
+              </p>
+            )}
+            {generandoIA && (
+              <p className="mb-3 text-[10px]" style={{ color: tema.textoSuave }}>
+                Esto puede tardar hasta 20-25 segundos. Puedes cerrar esta
+                ventana y seguir usando el lienzo mientras tanto.
               </p>
             )}
             <div className="flex gap-2">
@@ -254,16 +298,11 @@ export default function BarraCreacion({
                 )}
               </button>
               <button
-                onClick={() => {
-                  setMostrarIA(false);
-                  setPromptIA("");
-                  setErrorIA(null);
-                }}
-                disabled={generandoIA}
+                onClick={cerrarIA}
                 className="flex-1 px-3 py-1.5 text-xs"
                 style={{ border: `1px solid ${tema.textoSuave}44`, color: tema.textoSuave, borderRadius: tema.bordeRadio / 2 }}
               >
-                Cancelar
+                {generandoIA ? "Cerrar" : "Cancelar"}
               </button>
             </div>
           </div>

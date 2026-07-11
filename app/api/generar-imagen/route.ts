@@ -1,23 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Gemini a veces tarda unos segundos en generar; le damos margen.
+// Pollinations puede tardar en generar imagenes no cacheadas; le damos
+// margen extra al tiempo maximo de esta funcion en Vercel.
 export const maxDuration = 30;
 
-const MODELO = "gemini-2.5-flash-image";
-
 /**
- * Genera una imagen con IA usando la API de Gemini (Google), que
- * ofrece una capa gratuita real para el modelo "gemini-2.5-flash-image"
- * (apodado "Nano Banana"): no requiere tarjeta de credito, solo una
- * API key gratuita de https://aistudio.google.com/apikey
+ * Genera una imagen con IA usando Pollinations.ai — gratis de verdad,
+ * sin llave de API, sin tarjeta de credito, sin limite de facturacion.
  *
- * La peticion se hace desde el SERVIDOR (no desde el navegador) por
- * dos razones: para no exponer la API key en el codigo del cliente,
- * y para evitar cualquier restriccion de CORS.
+ * (Nota: se evaluo usar la API de Gemini de Google, pero se descarto:
+ * a diferencia de sus modelos de texto, la generacion de imagenes de
+ * Gemini NO tiene capa gratuita — cobra desde $0.045 por imagen sin
+ * excepcion, incluso con una API key nueva. Pollinations si es
+ * genuinamente gratis.)
  *
- * Requiere la variable de entorno GEMINI_API_KEY configurada en
- * Vercel (Settings > Environment Variables). Sin ella, esta ruta
- * responde con un error explicando como conseguirla.
+ * La peticion se hace desde el SERVIDOR, no desde el navegador: el
+ * navegador aplica CORS a las peticiones "fetch" hacia otros dominios,
+ * y Pollinations no garantiza cabeceras CORS permisivas en su endpoint
+ * de imagenes. Un servidor no tiene esa restriccion (CORS es una
+ * politica exclusiva de navegadores), asi que pedimos la imagen aqui y
+ * se la pasamos al cliente ya lista — esto es lo que de verdad
+ * resuelve el "no genera nada" que veniamos arrastrando.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -27,67 +30,52 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Falta la descripcion." }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        {
-          error:
-            "Falta configurar GEMINI_API_KEY en el servidor. Consigue una llave gratis en https://aistudio.google.com/apikey y agregala en Vercel > Settings > Environment Variables.",
-        },
-        { status: 500 }
-      );
-    }
+    const url = `https://gen.pollinations.ai/image/${encodeURIComponent(
+      prompt.trim()
+    )}?width=512&height=512&nologo=true&safe=true`;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent?key=${apiKey}`;
-
-    const respuestaGemini = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt.trim() }] }],
-      }),
+    const respuesta = await fetch(url, {
+      headers: { Accept: "image/*" },
       cache: "no-store",
+      signal: AbortSignal.timeout(28000),
     });
 
-    if (!respuestaGemini.ok) {
-      if (respuestaGemini.status === 429) {
-        return NextResponse.json(
-          { error: "Se alcanzo el limite gratuito de generaciones por minuto. Espera un momento y vuelve a intentar." },
-          { status: 429 }
-        );
-      }
-      const detalle = await respuestaGemini.text();
-      console.error("Error de Gemini:", respuestaGemini.status, detalle);
+    if (!respuesta.ok) {
+      console.error("Error de Pollinations:", respuesta.status);
       return NextResponse.json(
-        { error: `El servicio de IA respondio con error ${respuestaGemini.status}.` },
+        { error: `El servicio de IA respondio con error ${respuesta.status}. Intenta de nuevo.` },
         { status: 502 }
       );
     }
 
-    const data = await respuestaGemini.json();
-    const partes = data?.candidates?.[0]?.content?.parts || [];
-    const partesImagen = partes.find((p: any) => p.inlineData?.data);
+    const contentType = respuesta.headers.get("content-type") || "image/jpeg";
+    const bytes = await respuesta.arrayBuffer();
 
-    if (!partesImagen) {
+    // Confirmamos que de verdad llego una imagen (a veces un error
+    // devuelve una pagina HTML con status 200, lo cual rompe todo
+    // silenciosamente si no lo validamos).
+    if (!contentType.startsWith("image/") || bytes.byteLength < 500) {
       return NextResponse.json(
-        { error: "La IA no devolvio una imagen. Intenta con otra descripcion." },
+        { error: "La IA no devolvio una imagen valida. Intenta con otra descripcion." },
         { status: 502 }
       );
     }
-
-    const base64 = partesImagen.inlineData.data as string;
-    const mimeType = partesImagen.inlineData.mimeType || "image/png";
-    const bytes = Buffer.from(base64, "base64");
 
     return new NextResponse(bytes, {
       status: 200,
       headers: {
-        "Content-Type": mimeType,
+        "Content-Type": contentType,
         "Cache-Control": "no-store",
       },
     });
   } catch (err) {
     console.error("Error generando imagen con IA:", err);
+    if (err instanceof Error && err.name === "TimeoutError") {
+      return NextResponse.json(
+        { error: "El servicio de IA tardo demasiado en responder. Intenta de nuevo." },
+        { status: 504 }
+      );
+    }
     return NextResponse.json(
       { error: "No se pudo generar la imagen. Intenta de nuevo." },
       { status: 500 }
