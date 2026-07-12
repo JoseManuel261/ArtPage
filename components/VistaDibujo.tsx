@@ -57,7 +57,7 @@ export default function VistaDibujo({ tablero }: VistaDibujoProps) {
   const puntosRef = useRef<PuntoTrazo[]>([]);
   const historialRef = useRef<string[]>([]);
   const indiceHistorialRef = useRef(-1);
-  const guardarTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const guardarTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const [pincel, setPincel] = useState<TipoPincel>("pincel");
   const [color, setColor] = useState("#111827");
