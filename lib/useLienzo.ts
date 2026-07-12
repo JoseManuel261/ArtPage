@@ -254,10 +254,17 @@ export function useLienzo(tablero: Tablero | null) {
       });
   }, []);
 
-  const todosLosColores = useMemo(
-    () => stickers.flatMap((s) => s.palette || (s.dominant_color ? [s.dominant_color] : [])),
-    [stickers]
-  );
+  const todosLosColores = useMemo(() => {
+    // El "estado de animo" se calcula solo con los stickers mas
+    // recientes (hasta 15), no con todo el historial del tablero.
+    // Sin esto, en un tablero con muchas fotos ya guardadas, agregar
+    // UNA imagen nueva (por ejemplo, generada con IA) apenas movia el
+    // promedio general y el cambio de color era imperceptible.
+    const recientes = [...stickers]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 15);
+    return recientes.flatMap((s) => s.palette || (s.dominant_color ? [s.dominant_color] : []));
+  }, [stickers]);
   const estadoAnimo = useMemo(() => calcularEstadoAnimo(todosLosColores), [todosLosColores]);
   const coloresAurora = useMemo(
     () => seleccionarColoresDestacados(todosLosColores, 5),

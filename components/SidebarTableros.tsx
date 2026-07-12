@@ -297,7 +297,7 @@ export default function SidebarTableros({
                     <button
                       onClick={() => abrirEdicion(tab)}
                       aria-label={`Editar ${tab.nombre}`}
-                      className="flex shrink-0 items-center justify-center px-2 opacity-50 hover:opacity-100"
+                      className="flex min-w-[40px] shrink-0 items-center justify-center px-2 opacity-70 hover:opacity-100 [@media(hover:hover)]:opacity-50"
                       style={{ borderLeft: `${tema.bordeGrosor}px solid ${tema.efectosRetro ? "#000" : `${activo ? tema.fondo : tema.textoSuave}22`}` }}
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -305,7 +305,7 @@ export default function SidebarTableros({
                     <button
                       onClick={() => setTableroAEliminar(tab)}
                       aria-label={`Eliminar ${tab.nombre}`}
-                      className="flex shrink-0 items-center justify-center px-2 opacity-50 hover:opacity-100"
+                      className="flex min-w-[40px] shrink-0 items-center justify-center px-2 opacity-70 hover:opacity-100 [@media(hover:hover)]:opacity-50"
                       style={{ borderLeft: `${tema.bordeGrosor}px solid ${tema.efectosRetro ? "#000" : `${activo ? tema.fondo : tema.textoSuave}22`}` }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -491,10 +491,14 @@ export default function SidebarTableros({
       </aside>
 
       {tableroAEliminar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => !eliminando && setTableroAEliminar(null)}
+        >
           <div
             className="w-full max-w-xs p-4"
             style={{ backgroundColor: tema.superficie, borderRadius: tema.bordeRadio, boxShadow: tema.sombra, color: tema.texto }}
+            onClick={(e) => e.stopPropagation()}
           >
             <p className="mb-3 text-center text-xs">
               ¿Eliminar el tablero <strong>"{tableroAEliminar.nombre}"</strong> y todas sus imágenes?

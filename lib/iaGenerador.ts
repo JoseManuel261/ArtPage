@@ -29,7 +29,14 @@ export async function generarImagenIA(prompt: string): Promise<File> {
   }
 
   const blob = await respuesta.blob();
-  return new File([blob], `ia-${Date.now()}.jpg`, {
-    type: blob.type || "image/jpeg",
+  // Nos aseguramos de que el tipo sea explicitamente una imagen: si el
+  // blob llega sin tipo (o con uno generico como
+  // "application/octet-stream"), el analisis de color y la vista
+  // previa pueden fallar en silencio.
+  const tipoFinal = blob.type && blob.type.startsWith("image/") ? blob.type : "image/png";
+  const extension = tipoFinal.split("/")[1] || "png";
+
+  return new File([blob], `ia-${Date.now()}.${extension}`, {
+    type: tipoFinal,
   });
 }

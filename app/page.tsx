@@ -9,6 +9,7 @@ import VistaAlbum from "@/components/VistaAlbum";
 import VistaTimeline from "@/components/VistaTimeline";
 import VistaPresentacion from "@/components/VistaPresentacion";
 import VistaConstelacion from "@/components/VistaConstelacion";
+import VistaDibujo from "@/components/VistaDibujo";
 import CapsulaTiempo from "@/components/CapsulaTiempo";
 import DedicatoriaReveal from "@/components/DedicatoriaReveal";
 import { supabase } from "@/lib/supabaseClient";
@@ -225,6 +226,8 @@ function ContenidoPagina({
         <VistaPresentacion {...vistaProps} />
       ) : tableroActivo?.modo === "constelacion" ? (
         <VistaConstelacion {...vistaProps} />
+      ) : tableroActivo?.modo === "dibujo" ? (
+        <VistaDibujo tablero={tableroActivo} />
       ) : (
         <StickerCanvas {...vistaProps} />
       )}

@@ -90,8 +90,10 @@ export default function TarjetaSticker({
             e.stopPropagation();
             onAlternarFavorito(sticker);
           }}
-          className={`absolute -left-2 -top-2 z-10 flex h-6 w-6 items-center justify-center transition-opacity ${
-            sticker.favorito ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          className={`absolute -left-2 -top-2 z-10 flex h-7 w-7 items-center justify-center transition-opacity sm:h-6 sm:w-6 ${
+            sticker.favorito
+              ? "opacity-100"
+              : "opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
           }`}
           style={{
             border: `2px solid ${tema.efectosRetro ? "#000" : "transparent"}`,
@@ -107,7 +109,7 @@ export default function TarjetaSticker({
       )}
 
       {mostrarAcciones && (onCambiarFiltro || onEliminar) && (
-        <div className="absolute -right-2 -top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute -right-2 -top-2 z-10 flex gap-1 opacity-100 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100">
           {sticker.tipo === "imagen" && onCambiarFiltro && (
             <button
               onMouseDown={(e) => e.stopPropagation()}

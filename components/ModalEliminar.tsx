@@ -14,10 +14,11 @@ export default function ModalEliminar({ sticker, onConfirmar, onCancelar }: Moda
   if (!sticker) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onCancelar}>
       <div
         className="w-full max-w-xs p-4"
         style={{ backgroundColor: tema.superficie, borderRadius: tema.bordeRadio, boxShadow: tema.sombra, color: tema.texto, fontFamily: tema.fuenteUI }}
+        onClick={(e) => e.stopPropagation()}
       >
         {sticker.tipo === "imagen" ? (
           <img

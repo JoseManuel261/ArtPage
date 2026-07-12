@@ -4,7 +4,7 @@ export type FilterType = "raw" | "hackeado" | "duotone";
 export type TipoSticker = "imagen" | "texto";
 
 /** Los 5 "formatos" de interfaz que puede tener un tablero. */
-export type ModoTablero = "collage" | "album" | "timeline" | "presentacion" | "constelacion";
+export type ModoTablero = "collage" | "album" | "timeline" | "presentacion" | "constelacion" | "dibujo";
 
 /** Temas visuales, cada uno con su propia paleta/tipografia/textura. */
 export type TemaVisual = "minimal" | "neon" | "scrapbook" | "pastel";
@@ -18,6 +18,8 @@ export interface Tablero {
   fecha_revelacion: string | null;
   /** Mensaje personal que se revela al abrir el tablero (opcional). */
   dedicatoria: string | null;
+  /** URL publica del PNG guardado del modo Dibujo, si se ha usado. */
+  dibujo_url: string | null;
   created_at: string;
 }
 
@@ -57,6 +59,7 @@ export const MODOS_TABLERO: { valor: ModoTablero; etiqueta: string; descripcion:
   { valor: "timeline", etiqueta: "Línea de tiempo", descripcion: "Todo ordenado cronológicamente" },
   { valor: "presentacion", etiqueta: "Presentación", descripcion: "Recorrido automático tipo diapositivas" },
   { valor: "constelacion", etiqueta: "Constelación", descripcion: "Recuerdos conectados como un mapa mental" },
+  { valor: "dibujo", etiqueta: "Dibujo", descripcion: "Un lienzo en blanco para dibujar libremente" },
 ];
 
 export const TEMAS_VISUALES: { valor: TemaVisual; etiqueta: string }[] = [

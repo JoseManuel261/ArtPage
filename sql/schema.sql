@@ -16,10 +16,11 @@ create extension if not exists "pgcrypto";
 create table if not exists public.tableros (
   id uuid primary key default gen_random_uuid(),
   nombre text not null,
-  modo text not null default 'collage' check (modo in ('collage', 'album', 'timeline', 'presentacion', 'constelacion')),
+  modo text not null default 'collage' check (modo in ('collage', 'album', 'timeline', 'presentacion', 'constelacion', 'dibujo')),
   tema_visual text not null default 'minimal' check (tema_visual in ('neon', 'scrapbook', 'pastel', 'minimal')),
   fecha_revelacion timestamptz,
   dedicatoria text,
+  dibujo_url text,
   created_at timestamptz not null default now()
 );
 
@@ -28,6 +29,7 @@ alter table public.tableros add column if not exists modo text not null default 
 alter table public.tableros add column if not exists tema_visual text not null default 'minimal';
 alter table public.tableros add column if not exists fecha_revelacion timestamptz;
 alter table public.tableros add column if not exists dedicatoria text;
+alter table public.tableros add column if not exists dibujo_url text;
 
 do $$
 begin
@@ -35,7 +37,7 @@ begin
     alter table public.tableros drop constraint tableros_modo_check;
   end if;
   alter table public.tableros
-    add constraint tableros_modo_check check (modo in ('collage', 'album', 'timeline', 'presentacion', 'constelacion'));
+    add constraint tableros_modo_check check (modo in ('collage', 'album', 'timeline', 'presentacion', 'constelacion', 'dibujo'));
 
   if exists (select 1 from pg_constraint where conname = 'tableros_tema_check') then
     alter table public.tableros drop constraint tableros_tema_check;
