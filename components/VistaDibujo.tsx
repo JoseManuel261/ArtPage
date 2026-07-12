@@ -114,6 +114,10 @@ export default function VistaDibujo({ tablero }: VistaDibujoProps) {
     if (!tablero) return;
     let cancelado = false;
     setCargando(true);
+    // Capturamos el valor aqui afuera: dentro de la funcion async
+    // anidada, TypeScript ya no puede seguir garantizando que
+    // "tablero" no sea null en cada punto de uso.
+    const urlGuardada = tablero.dibujo_url;
 
     async function cargar() {
       const canvas = canvasRef.current;
@@ -126,7 +130,7 @@ export default function VistaDibujo({ tablero }: VistaDibujoProps) {
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, width, height);
 
-      const url = tablero.dibujo_url;
+      const url = urlGuardada;
       if (url) {
         await new Promise<void>((resolve) => {
           const img = new Image();
