@@ -143,6 +143,7 @@ function ContenidoPagina({
   const vistaProps = {
     tablero: tableroActivo,
     onPaletaChange: manejarPaletaChange,
+    onTableroActualizado,
   };
 
   return (

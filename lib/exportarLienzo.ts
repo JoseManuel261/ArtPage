@@ -3,8 +3,8 @@
 import type { Sticker } from "./types";
 
 /**
- * Compone todos los stickers de un tablero (fotos y cartelitos de
- * texto) en un solo canvas y lo descarga como PNG. 100% nativo del
+ * Compone todo el tablero (capa de dibujo de fondo + fotos + cartelitos
+ * de texto) en un solo canvas y lo descarga como PNG. 100% nativo del
  * navegador (Canvas API): sin librerias externas, sin costo.
  *
  * Dibujamos cada elemento con su propia rotacion/escala/borde blanco,
@@ -16,6 +16,13 @@ const TAM_IMAGEN = 200; // tamano de referencia para fotos (mas nitido que en pa
 const ANCHO_TEXTO = 260;
 const ALTO_TEXTO = 200;
 const MARGEN = 160;
+
+interface OpcionesExportar {
+  /** Color de fondo del lienzo exportado (por defecto, el del tema activo). */
+  colorFondo?: string;
+  /** URL del dibujo guardado de este tablero (capa CapaDibujo), si existe. */
+  dibujoUrl?: string | null;
+}
 
 function footprint(sticker: Sticker): { w: number; h: number } {
   if (sticker.tipo === "texto") {
@@ -60,18 +67,33 @@ function envolverTexto(
   return lineas.slice(0, 6);
 }
 
+function cargarImagen(url: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
 export async function exportarLienzoComoPng(
   stickers: Sticker[],
-  nombreTablero: string
+  nombreTablero: string,
+  opciones: OpcionesExportar = {}
 ): Promise<void> {
-  if (stickers.length === 0) return;
+  const { colorFondo = "#0a0a0a", dibujoUrl = null } = opciones;
 
-  const minX = Math.min(...stickers.map((s) => s.x)) - MARGEN;
-  const minY = Math.min(...stickers.map((s) => s.y)) - MARGEN;
-  const maxX =
-    Math.max(...stickers.map((s) => s.x + footprint(s).w)) + MARGEN;
-  const maxY =
-    Math.max(...stickers.map((s) => s.y + footprint(s).h)) + MARGEN;
+  if (stickers.length === 0 && !dibujoUrl) return;
+
+  const minX = stickers.length ? Math.min(...stickers.map((s) => s.x)) - MARGEN : 0;
+  const minY = stickers.length ? Math.min(...stickers.map((s) => s.y)) - MARGEN : 0;
+  const maxX = stickers.length
+    ? Math.max(...stickers.map((s) => s.x + footprint(s).w)) + MARGEN
+    : 800;
+  const maxY = stickers.length
+    ? Math.max(...stickers.map((s) => s.y + footprint(s).h)) + MARGEN
+    : 800;
 
   const ancho = Math.max(600, maxX - minX);
   const alto = Math.max(600, maxY - minY);
@@ -82,8 +104,22 @@ export async function exportarLienzoComoPng(
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
-  ctx.fillStyle = "#0a0a0a";
+  ctx.fillStyle = colorFondo;
   ctx.fillRect(0, 0, ancho, alto);
+
+  // Capa de dibujo: se guardo con el origen (0,0) del contenedor
+  // visible, que es el mismo sistema de coordenadas que usan x/y de
+  // los stickers — asi que se ubica en (0 - minX, 0 - minY).
+  if (dibujoUrl) {
+    const imgDibujo = await cargarImagen(dibujoUrl);
+    if (imgDibujo) {
+      try {
+        ctx.drawImage(imgDibujo, -minX, -minY, imgDibujo.naturalWidth, imgDibujo.naturalHeight);
+      } catch {
+        // Si el dibujo bloquea por CORS, seguimos sin el (las fotos igual se exportan).
+      }
+    }
+  }
 
   // Precargamos solo las imagenes (los cartelitos de texto no tienen
   // imagen que cargar, se dibujan directo con fillText).
@@ -91,22 +127,9 @@ export async function exportarLienzoComoPng(
   await Promise.all(
     stickers
       .filter((s) => s.tipo === "imagen")
-      .map(
-        (s) =>
-          new Promise<void>((resolve) => {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.onload = () => {
-              imagenesPorId.set(s.id, img);
-              resolve();
-            };
-            img.onerror = () => {
-              imagenesPorId.set(s.id, null);
-              resolve();
-            };
-            img.src = s.image_url;
-          })
-      )
+      .map(async (s) => {
+        imagenesPorId.set(s.id, await cargarImagen(s.image_url));
+      })
   );
 
   const ordenados = [...stickers].sort((a, b) => a.z_index - b.z_index);

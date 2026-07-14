@@ -20,6 +20,8 @@ export interface Tablero {
   dedicatoria: string | null;
   /** URL publica del PNG guardado del modo Dibujo, si se ha usado. */
   dibujo_url: string | null;
+  /** Fondo ambiental generado con IA, basado en la paleta detectada. */
+  fondo_ia_url: string | null;
   created_at: string;
 }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ScanLine, Palette, Download, Volume2, VolumeX, Loader2, Heart } from "lucide-react";
+import { ScanLine, Palette, Download, Volume2, VolumeX, Loader2, Heart, Brush, Sparkles } from "lucide-react";
 import type { Sticker, Tablero } from "@/lib/types";
 import { useLienzo } from "@/lib/useLienzo";
 import { exportarLienzoComoPng } from "@/lib/exportarLienzo";
@@ -11,10 +11,12 @@ import { useTema } from "@/lib/TemaContext";
 import BarraCreacion from "./BarraCreacion";
 import ModalEliminar from "./ModalEliminar";
 import TarjetaSticker from "./TarjetaSticker";
+import CapaDibujo from "./CapaDibujo";
 
 interface StickerCanvasProps {
   tablero: Tablero | null;
   onPaletaChange?: (colores: string[], etiqueta: string) => void;
+  onTableroActualizado?: (t: Tablero) => void;
 }
 
 const ESCALA_MIN = 0.5;
@@ -36,19 +38,21 @@ const posicionesEco = [
 ];
 
 /** Modo "Collage libre": arrastrar, rotar, redimensionar cualquier sticker por el lienzo. */
-export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvasProps) {
+export default function StickerCanvas({ tablero, onPaletaChange, onTableroActualizado }: StickerCanvasProps) {
   const tema = useTema();
   const {
     stickers, cargando, subiendo, subirArchivoComoSticker, crearCartelitoTexto,
-    generarConIA, eliminarSticker, traerAlFrente, actualizarPosicion, cambiarFiltro,
-    alternarFavorito, actualizarEscala, todosLosColores, estadoAnimo, coloresAurora,
-  } = useLienzo(tablero);
+    generarConIA, generarFondoAmbiente, generandoFondo, eliminarSticker, traerAlFrente,
+    actualizarPosicion, cambiarFiltro, alternarFavorito, actualizarEscala,
+    todosLosColores, estadoAnimo, coloresAurora,
+  } = useLienzo(tablero, onTableroActualizado);
 
   const [arrastrandoArchivo, setArrastrandoArchivo] = useState(false);
   const [stickerAEliminar, setStickerAEliminar] = useState<Sticker | null>(null);
   const [exportando, setExportando] = useState(false);
   const [sonidoOn, setSonidoOn] = useState(() => sonidoActivo.get());
   const [soloFavoritos, setSoloFavoritos] = useState(false);
+  const [modoDibujo, setModoDibujo] = useState(false);
 
   // Los efectos decorativos (ecos difuminados de fotos, manchas de
   // aurora) son parte de la identidad del tema Neon/Glitch. En los
@@ -64,11 +68,25 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
     onPaletaChange?.(todosLosColores, estadoAnimo.etiqueta);
   }, [todosLosColores, estadoAnimo.etiqueta, onPaletaChange]);
 
+  async function handleGenerarFondo() {
+    if (!tablero) return;
+    const colores = coloresAurora.slice(0, 3).join(", ");
+    const prompt = `abstract dreamy background texture, soft blurred gradients, colors ${colores}, mood: ${estadoAnimo.etiqueta}, minimalist digital art, no text, no objects, no people`;
+    try {
+      await generarFondoAmbiente(prompt);
+    } catch (err) {
+      console.error("Error generando fondo con IA:", err);
+    }
+  }
+
   async function handleExportar() {
-    if (!tablero || stickers.length === 0) return;
+    if (!tablero || (stickers.length === 0 && !tablero.dibujo_url)) return;
     setExportando(true);
     try {
-      await exportarLienzoComoPng(stickers, tablero.nombre);
+      await exportarLienzoComoPng(stickers, tablero.nombre, {
+        colorFondo: tema.fondo,
+        dibujoUrl: tablero.dibujo_url,
+      });
     } finally {
       setExportando(false);
     }
@@ -118,6 +136,13 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
       className="art-canvas relative h-full flex-1 overflow-hidden"
       style={{ backgroundColor: tema.fondo }}
     >
+      {tablero.fondo_ia_url && (
+        <div
+          className="pointer-events-none absolute inset-0 bg-cover bg-center transition-opacity duration-700"
+          style={{ backgroundImage: `url(${tablero.fondo_ia_url})`, opacity: 0.5 }}
+        />
+      )}
+
       {mostrarDecoracion && (
         <>
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -181,6 +206,28 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
         </div>
         <div className="flex gap-1.5">
           <button
+            onClick={handleGenerarFondo}
+            disabled={generandoFondo || todosLosColores.length === 0}
+            aria-label="Generar fondo ambiental con IA"
+            title="Generar un fondo con IA basado en la paleta detectada"
+            className="flex items-center justify-center p-1.5 disabled:opacity-30"
+            style={{ backgroundColor: `${tema.superficie}dd`, color: tema.textoSuave, borderRadius: tema.bordeRadio / 3 }}
+          >
+            {generandoFondo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            onClick={() => setModoDibujo((v) => !v)}
+            aria-label={modoDibujo ? "Salir del modo dibujo" : "Dibujar sobre el lienzo"}
+            className="flex items-center justify-center p-1.5"
+            style={{
+              backgroundColor: modoDibujo ? tema.acento : `${tema.superficie}dd`,
+              color: modoDibujo ? tema.fondo : tema.textoSuave,
+              borderRadius: tema.bordeRadio / 3,
+            }}
+          >
+            <Brush className="h-3.5 w-3.5" />
+          </button>
+          <button
             onClick={() => setSoloFavoritos((v) => !v)}
             aria-label={soloFavoritos ? "Ver todos" : "Ver solo favoritos"}
             className="flex items-center justify-center p-1.5"
@@ -202,7 +249,7 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
           </button>
           <button
             onClick={handleExportar}
-            disabled={exportando || stickers.length === 0}
+            disabled={exportando || (stickers.length === 0 && !tablero.dibujo_url)}
             className="flex items-center gap-1 px-2 py-1.5 text-[9px] disabled:opacity-30 sm:text-[10px]"
             style={{ backgroundColor: `${tema.superficie}dd`, color: tema.textoSuave, borderRadius: tema.bordeRadio / 3 }}
           >
@@ -240,7 +287,7 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
         {(soloFavoritos ? stickers.filter((s) => s.favorito) : stickers).map((sticker) => (
           <motion.div
             key={sticker.id}
-            drag
+            drag={!modoDibujo}
             dragMomentum={false}
             onPointerDown={() => traerAlFrente(sticker.id)}
             onDragEnd={(_, info) => actualizarPosicion(sticker, sticker.x + info.offset.x, sticker.y + info.offset.y)}
@@ -251,18 +298,22 @@ export default function StickerCanvas({ tablero, onPaletaChange }: StickerCanvas
             whileDrag={{ scale: sticker.scale * 1.08, cursor: "grabbing" }}
             transition={{ type: "spring", stiffness: 260, damping: 20 }}
             style={{ position: "absolute", zIndex: sticker.z_index, top: 0, left: 0 }}
-            className="cursor-grab touch-none"
+            className={modoDibujo ? "touch-none" : "cursor-grab touch-none"}
           >
             <TarjetaSticker
               sticker={sticker}
               colorGlow={sticker.dominant_color || estadoAnimo.primario}
-              onCambiarFiltro={cambiarFiltro}
-              onEliminar={setStickerAEliminar}
-              onAlternarFavorito={alternarFavorito}
+              onCambiarFiltro={modoDibujo ? undefined : cambiarFiltro}
+              onEliminar={modoDibujo ? undefined : setStickerAEliminar}
+              onAlternarFavorito={modoDibujo ? undefined : alternarFavorito}
             />
           </motion.div>
         ))}
       </AnimatePresence>
+
+      {modoDibujo && (
+        <CapaDibujo tablero={tablero} overlay activo onCerrar={() => setModoDibujo(false)} />
+      )}
 
       <ModalEliminar sticker={stickerAEliminar} onConfirmar={eliminarSticker} onCancelar={() => setStickerAEliminar(null)} />
 

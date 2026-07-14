@@ -38,7 +38,7 @@ const SIGUIENTE_FILTRO: Record<FilterType, FilterType> = {
  * navega, no de la logica de Supabase — evita duplicar el mismo codigo
  * 4 veces.
  */
-export function useLienzo(tablero: Tablero | null) {
+export function useLienzo(tablero: Tablero | null, onTableroActualizado?: (t: Tablero) => void) {
   const [stickers, setStickers] = useState<Sticker[]>([]);
   const [cargando, setCargando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
@@ -182,6 +182,46 @@ export function useLienzo(tablero: Tablero | null) {
     [subirArchivoComoSticker]
   );
 
+  const [generandoFondo, setGenerandoFondo] = useState(false);
+
+  /**
+   * Genera un fondo ambiental con IA basado en la paleta/estado de
+   * animo YA detectado de las fotos del tablero (no necesita que el
+   * usuario escriba nada) — cierra el circulo entre "el lienzo se
+   * adapta al color de tus fotos" y la generacion con IA.
+   */
+  const generarFondoAmbiente = useCallback(
+    async (promptDescriptivo: string) => {
+      if (!tablero) return;
+      setGenerandoFondo(true);
+      try {
+        const archivo = await generarImagenIA(promptDescriptivo);
+        const ruta = `fondos/${tablero.id}.png`;
+
+        const { error: errSubida } = await supabase.storage
+          .from(STICKERS_BUCKET)
+          .upload(ruta, archivo, { cacheControl: "3600", upsert: true, contentType: "image/png" });
+        if (errSubida) throw errSubida;
+
+        const { data: urlPublica } = supabase.storage.from(STICKERS_BUCKET).getPublicUrl(ruta);
+        const urlConCache = `${urlPublica.publicUrl}?t=${Date.now()}`;
+
+        const { data, error } = await supabase
+          .from("tableros")
+          .update({ fondo_ia_url: urlConCache })
+          .eq("id", tablero.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) onTableroActualizado?.(data as Tablero);
+      } finally {
+        setGenerandoFondo(false);
+      }
+    },
+    [tablero, onTableroActualizado]
+  );
+
   const eliminarSticker = useCallback(async (sticker: Sticker) => {
     setStickers((prev) => prev.filter((s) => s.id !== sticker.id));
     sonidos.eliminar();
@@ -278,6 +318,8 @@ export function useLienzo(tablero: Tablero | null) {
     subirArchivoComoSticker,
     crearCartelitoTexto,
     generarConIA,
+    generarFondoAmbiente,
+    generandoFondo,
     eliminarSticker,
     traerAlFrente,
     actualizarPosicion,

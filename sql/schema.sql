@@ -21,6 +21,7 @@ create table if not exists public.tableros (
   fecha_revelacion timestamptz,
   dedicatoria text,
   dibujo_url text,
+  fondo_ia_url text,
   created_at timestamptz not null default now()
 );
 
@@ -30,6 +31,7 @@ alter table public.tableros add column if not exists tema_visual text not null d
 alter table public.tableros add column if not exists fecha_revelacion timestamptz;
 alter table public.tableros add column if not exists dedicatoria text;
 alter table public.tableros add column if not exists dibujo_url text;
+alter table public.tableros add column if not exists fondo_ia_url text;
 
 do $$
 begin
