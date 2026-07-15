@@ -13,6 +13,9 @@ import {
   Loader2,
   Check,
   Palette,
+  // --- Nuevos iconos para solucionar el error de TypeScript ---
+  Brush,
+  Wind,
 } from "lucide-react";
 import type { Tablero } from "@/lib/types";
 import { useTema } from "@/lib/TemaContext";
@@ -31,11 +34,15 @@ interface VistaDibujoProps {
   tablero: Tablero | null;
 }
 
+// --- Record de iconos actualizado con todas las opciones de TipoPincel ---
 const ICONO_PINCEL: Record<TipoPincel, typeof Pencil> = {
   lapiz: Pencil,
   marcador: Highlighter,
   pincel: Paintbrush,
   borrador: Eraser,
+  acuarela: Brush,
+  aerografo: Wind,
+  tiza: Pencil,
 };
 
 const MAX_HISTORIAL = 25;
@@ -194,38 +201,6 @@ export default function VistaDibujo({ tablero }: VistaDibujoProps) {
     img.src = data;
   }
 
-  function deshacer() {
-    if (indiceHistorialRef.current <= 0) return;
-    indiceHistorialRef.current -= 1;
-    restaurarDesdeHistorial(indiceHistorialRef.current);
-    setPuedeDeshacer(indiceHistorialRef.current > 0);
-    setPuedeRehacer(true);
-    programarGuardado();
-  }
-
-  function rehacer() {
-    if (indiceHistorialRef.current >= historialRef.current.length - 1) return;
-    indiceHistorialRef.current += 1;
-    restaurarDesdeHistorial(indiceHistorialRef.current);
-    setPuedeDeshacer(true);
-    setPuedeRehacer(indiceHistorialRef.current < historialRef.current.length - 1);
-    programarGuardado();
-  }
-
-  function limpiarTodo() {
-    const canvas = canvasRef.current;
-    const contenedor = contenedorRef.current;
-    if (!canvas || !contenedor) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const { width, height } = contenedor.getBoundingClientRect();
-    ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, width, height);
-    guardarHistorial();
-    programarGuardado();
-  }
-
   // --- Guardado automatico (debounced) a Supabase Storage
   function programarGuardado() {
     if (!tablero) return;
@@ -262,6 +237,38 @@ export default function VistaDibujo({ tablero }: VistaDibujoProps) {
         setTimeout(() => setGuardadoOk(false), 2000);
       }, "image/png");
     }, 900);
+  }
+
+  function deshacer() {
+    if (indiceHistorialRef.current <= 0) return;
+    indiceHistorialRef.current -= 1;
+    restaurarDesdeHistorial(indiceHistorialRef.current);
+    setPuedeDeshacer(indiceHistorialRef.current > 0);
+    setPuedeRehacer(true);
+    programarGuardado();
+  }
+
+  function rehacer() {
+    if (indiceHistorialRef.current >= historialRef.current.length - 1) return;
+    indiceHistorialRef.current += 1;
+    restaurarDesdeHistorial(indiceHistorialRef.current);
+    setPuedeDeshacer(true);
+    setPuedeRehacer(indiceHistorialRef.current < historialRef.current.length - 1);
+    programarGuardado();
+  }
+
+  function limpiarTodo() {
+    const canvas = canvasRef.current;
+    const contenedor = contenedorRef.current;
+    if (!canvas || !contenedor) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const { width, height } = contenedor.getBoundingClientRect();
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    guardarHistorial();
+    programarGuardado();
   }
 
   // --- Manejo del trazo con Pointer Events (mouse + tactil + lapiz optico)
