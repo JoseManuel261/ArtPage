@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ScanLine, Palette, Download, Volume2, VolumeX, Loader2, Heart, Brush, Sparkles } from "lucide-react";
+import { ScanLine, Palette, Download, Volume2, VolumeX, Loader2, Heart, Brush, Sparkles, Eye, EyeOff } from "lucide-react";
 import type { Sticker, Tablero } from "@/lib/types";
 import { useLienzo } from "@/lib/useLienzo";
 import { exportarLienzoComoPng } from "@/lib/exportarLienzo";
@@ -53,6 +53,7 @@ export default function StickerCanvas({ tablero, onPaletaChange, onTableroActual
   const [sonidoOn, setSonidoOn] = useState(() => sonidoActivo.get());
   const [soloFavoritos, setSoloFavoritos] = useState(false);
   const [modoDibujo, setModoDibujo] = useState(false);
+  const [mostrarDibujo, setMostrarDibujo] = useState(true);
 
   // Los efectos decorativos (ecos difuminados de fotos, manchas de
   // aurora) son parte de la identidad del tema Neon/Glitch. En los
@@ -143,6 +144,19 @@ export default function StickerCanvas({ tablero, onPaletaChange, onTableroActual
         />
       )}
 
+      {/* Dibujo guardado: se muestra siempre como fondo persistente
+          (no solo mientras se esta pintando), salvo que el usuario lo
+          oculte con el "ojo", o mientras el overlay interactivo esta
+          activo (para no verlo duplicado debajo de si mismo). */}
+      {tablero.dibujo_url && mostrarDibujo && !modoDibujo && (
+        <img
+          src={tablero.dibujo_url}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        />
+      )}
+
       {mostrarDecoracion && (
         <>
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -227,6 +241,17 @@ export default function StickerCanvas({ tablero, onPaletaChange, onTableroActual
           >
             <Brush className="h-3.5 w-3.5" />
           </button>
+          {tablero.dibujo_url && !modoDibujo && (
+            <button
+              onClick={() => setMostrarDibujo((v) => !v)}
+              aria-label={mostrarDibujo ? "Ocultar dibujo" : "Mostrar dibujo"}
+              title={mostrarDibujo ? "Ocultar dibujo (no se borra)" : "Mostrar dibujo"}
+              className="flex items-center justify-center p-1.5"
+              style={{ backgroundColor: `${tema.superficie}dd`, color: tema.textoSuave, borderRadius: tema.bordeRadio / 3 }}
+            >
+              {mostrarDibujo ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            </button>
+          )}
           <button
             onClick={() => setSoloFavoritos((v) => !v)}
             aria-label={soloFavoritos ? "Ver todos" : "Ver solo favoritos"}

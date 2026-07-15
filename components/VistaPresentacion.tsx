@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Pause, Play, ScanLine, Heart } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play, ScanLine, Heart, Brush } from "lucide-react";
 import type { Sticker, Tablero } from "@/lib/types";
 import { useLienzo } from "@/lib/useLienzo";
 import { useTema } from "@/lib/TemaContext";
 import BarraCreacion from "./BarraCreacion";
 import ModalEliminar from "./ModalEliminar";
 import TarjetaSticker from "./TarjetaSticker";
+import CapaDibujo from "./CapaDibujo";
 
 interface VistaPresentacionProps {
   tablero: Tablero | null;
@@ -27,6 +28,7 @@ export default function VistaPresentacion({ tablero, onPaletaChange }: VistaPres
 
   const [stickerAEliminar, setStickerAEliminar] = useState<Sticker | null>(null);
   const [soloFavoritos, setSoloFavoritos] = useState(false);
+  const [modoDibujo, setModoDibujo] = useState(false);
   const [indice, setIndice] = useState(0);
   const [reproduciendo, setReproduciendo] = useState(true);
   const [mostrarBarra, setMostrarBarra] = useState(false);
@@ -81,6 +83,15 @@ export default function VistaPresentacion({ tablero, onPaletaChange }: VistaPres
 
   return (
     <div className="relative flex h-full flex-1 flex-col overflow-hidden" style={{ backgroundColor: tema.fondo }}>
+      {tablero.dibujo_url && !modoDibujo && (
+        <img
+          src={tablero.dibujo_url}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        />
+      )}
+
       <div
         className="pointer-events-none absolute inset-0 opacity-30 transition-[background] duration-[1500ms]"
         style={{
@@ -95,6 +106,18 @@ export default function VistaPresentacion({ tablero, onPaletaChange }: VistaPres
           {mostrarBarra ? "Ocultar herramientas" : "+ Agregar recuerdos"}
         </button>
         <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            onClick={() => setModoDibujo((v) => !v)}
+            aria-label={modoDibujo ? "Salir del modo dibujo" : "Dibujar sobre el lienzo"}
+            className="flex items-center justify-center p-1.5"
+            style={{
+              backgroundColor: modoDibujo ? tema.acento : `${tema.superficie}dd`,
+              color: modoDibujo ? tema.fondo : tema.textoSuave,
+              borderRadius: tema.bordeRadio / 3,
+            }}
+          >
+            <Brush className="h-3.5 w-3.5" />
+          </button>
           <button
             onClick={() => setSoloFavoritos((v) => !v)}
             aria-label={soloFavoritos ? "Ver todos" : "Ver solo favoritos"}
@@ -185,6 +208,10 @@ export default function VistaPresentacion({ tablero, onPaletaChange }: VistaPres
             </button>
           </div>
         </div>
+      )}
+
+      {modoDibujo && (
+        <CapaDibujo tablero={tablero} overlay activo onCerrar={() => setModoDibujo(false)} />
       )}
 
       <ModalEliminar sticker={stickerAEliminar} onConfirmar={eliminarSticker} onCancelar={() => setStickerAEliminar(null)} />

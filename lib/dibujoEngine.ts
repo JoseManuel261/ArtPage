@@ -1,6 +1,6 @@
 "use client";
 
-export type TipoPincel = "lapiz" | "marcador" | "pincel" | "borrador";
+export type TipoPincel = "lapiz" | "marcador" | "pincel" | "acuarela" | "aerografo" | "tiza" | "borrador";
 
 export interface PuntoTrazo {
   x: number;
@@ -130,6 +130,89 @@ export function dibujarSegmento(
       break;
     }
 
+    case "acuarela": {
+      // Manchas suaves y translucidas que se superponen y "sangran"
+      // un poco entre si, como acuarela real sobre papel humedo.
+      ctx.globalCompositeOperation = "multiply";
+      const [r, g, b] = hexToRgb(config.color);
+      const pasos = Math.max(2, Math.ceil(distancia(anterior, actual) / (config.tamano * 0.4)));
+      for (let i = 0; i <= pasos; i++) {
+        const t = i / pasos;
+        const x = anterior.x + (actual.x - anterior.x) * t;
+        const y = anterior.y + (actual.y - anterior.y) * t;
+        const radioBase = config.tamano * (1.1 + Math.random() * 0.5);
+
+        const gradiente = ctx.createRadialGradient(x, y, 0, x, y, radioBase);
+        gradiente.addColorStop(0, `rgba(${r},${g},${b},${config.opacidad * 0.22})`);
+        gradiente.addColorStop(0.7, `rgba(${r},${g},${b},${config.opacidad * 0.14})`);
+        gradiente.addColorStop(1, `rgba(${r},${g},${b},0)`);
+
+        ctx.beginPath();
+        ctx.fillStyle = gradiente;
+        ctx.arc(
+          x + (Math.random() - 0.5) * config.tamano * 0.3,
+          y + (Math.random() - 0.5) * config.tamano * 0.3,
+          radioBase,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+      }
+      break;
+    }
+
+    case "aerografo": {
+      // Aerografo/spray: nube de puntos diminutos dispersos al azar
+      // dentro de un radio, con densidad proporcional al tamaño.
+      ctx.globalCompositeOperation = "source-over";
+      const [r, g, b] = hexToRgb(config.color);
+      const radio = config.tamano * 1.4;
+      const cantidad = Math.max(4, Math.round(config.tamano * 1.6));
+      for (let i = 0; i < cantidad; i++) {
+        const angulo = Math.random() * Math.PI * 2;
+        const dist = Math.random() * radio;
+        const x = actual.x + Math.cos(angulo) * dist;
+        const y = actual.y + Math.sin(angulo) * dist;
+        ctx.beginPath();
+        ctx.arc(x, y, Math.random() * 1.4 + 0.3, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${r},${g},${b},${config.opacidad * (0.4 + Math.random() * 0.4)})`;
+        ctx.fill();
+      }
+      break;
+    }
+
+    case "tiza": {
+      // Tiza/pastel: trazo ancho con bordes irregulares y textura
+      // rugosa (muchos puntos pequeños con hueco al azar, imitando el
+      // grano del papel/pizarra sobre el que se desliza la tiza).
+      ctx.globalCompositeOperation = "source-over";
+      const [r, g, b] = hexToRgb(config.color);
+      const pasos = Math.max(3, Math.ceil(distancia(anterior, actual) / 1.2));
+      const anchoTiza = config.tamano * 1.3;
+      for (let i = 0; i <= pasos; i++) {
+        const t = i / pasos;
+        const cx = anterior.x + (actual.x - anterior.x) * t;
+        const cy = anterior.y + (actual.y - anterior.y) * t;
+        // Varios puntos perpendiculares al trazo para dar ancho con
+        // borde irregular (no un circulo perfecto).
+        const muestras = 5;
+        for (let j = 0; j < muestras; j++) {
+          if (Math.random() < 0.35) continue; // huecos = textura rugosa
+          const offset = (Math.random() - 0.5) * anchoTiza;
+          const nx = -(actual.y - anterior.y);
+          const ny = actual.x - anterior.x;
+          const largo = Math.hypot(nx, ny) || 1;
+          const px = cx + (nx / largo) * offset;
+          const py = cy + (ny / largo) * offset;
+          ctx.beginPath();
+          ctx.arc(px, py, Math.random() * 1.3 + 0.5, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${r},${g},${b},${config.opacidad * (0.5 + Math.random() * 0.4)})`;
+          ctx.fill();
+        }
+      }
+      break;
+    }
+
     case "borrador": {
       ctx.globalCompositeOperation = "destination-out";
       ctx.strokeStyle = "rgba(0,0,0,1)";
@@ -152,6 +235,9 @@ export const PINCELES: { valor: TipoPincel; etiqueta: string }[] = [
   { valor: "lapiz", etiqueta: "Lápiz" },
   { valor: "marcador", etiqueta: "Marcador" },
   { valor: "pincel", etiqueta: "Pincel" },
+  { valor: "acuarela", etiqueta: "Acuarela" },
+  { valor: "aerografo", etiqueta: "Aerógrafo" },
+  { valor: "tiza", etiqueta: "Tiza" },
   { valor: "borrador", etiqueta: "Borrador" },
 ];
 

@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ScanLine, Heart } from "lucide-react";
+import { ScanLine, Heart, Brush } from "lucide-react";
 import type { Sticker, Tablero } from "@/lib/types";
 import { useLienzo } from "@/lib/useLienzo";
 import { useTema } from "@/lib/TemaContext";
 import BarraCreacion from "./BarraCreacion";
 import ModalEliminar from "./ModalEliminar";
 import TarjetaSticker from "./TarjetaSticker";
+import CapaDibujo from "./CapaDibujo";
 
 interface VistaTimelineProps {
   tablero: Tablero | null;
@@ -28,6 +29,7 @@ export default function VistaTimeline({ tablero, onPaletaChange }: VistaTimeline
 
   const [stickerAEliminar, setStickerAEliminar] = useState<Sticker | null>(null);
   const [soloFavoritos, setSoloFavoritos] = useState(false);
+  const [modoDibujo, setModoDibujo] = useState(false);
 
   useEffect(() => {
     onPaletaChange?.(todosLosColores, estadoAnimo.etiqueta);
@@ -53,6 +55,15 @@ export default function VistaTimeline({ tablero, onPaletaChange }: VistaTimeline
 
   return (
     <div className="relative flex h-full flex-1 flex-col overflow-hidden" style={{ backgroundColor: tema.fondo }}>
+      {tablero.dibujo_url && !modoDibujo && (
+        <img
+          src={tablero.dibujo_url}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        />
+      )}
+
       {tema.efectosRetro && (
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:32px_32px]" />
       )}
@@ -67,6 +78,18 @@ export default function VistaTimeline({ tablero, onPaletaChange }: VistaTimeline
           onCrearTexto={crearCartelitoTexto}
         />
         <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            onClick={() => setModoDibujo((v) => !v)}
+            aria-label={modoDibujo ? "Salir del modo dibujo" : "Dibujar sobre el lienzo"}
+            className="flex items-center justify-center p-1.5"
+            style={{
+              backgroundColor: modoDibujo ? tema.acento : `${tema.superficie}dd`,
+              color: modoDibujo ? tema.fondo : tema.textoSuave,
+              borderRadius: tema.bordeRadio / 3,
+            }}
+          >
+            <Brush className="h-3.5 w-3.5" />
+          </button>
           <button
             onClick={() => setSoloFavoritos((v) => !v)}
             aria-label={soloFavoritos ? "Ver todos" : "Ver solo favoritos"}
@@ -135,6 +158,10 @@ export default function VistaTimeline({ tablero, onPaletaChange }: VistaTimeline
             ))}
           </div>
         </div>
+      )}
+
+      {modoDibujo && (
+        <CapaDibujo tablero={tablero} overlay activo onCerrar={() => setModoDibujo(false)} />
       )}
 
       <ModalEliminar sticker={stickerAEliminar} onConfirmar={eliminarSticker} onCancelar={() => setStickerAEliminar(null)} />
